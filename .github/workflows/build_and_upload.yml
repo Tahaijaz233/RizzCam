@@ -1,0 +1,85 @@
+name: Build, Test and Release RizzCam APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Cloud Build & Release (Off-Device)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle 8.7
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: "8.7"
+
+      - name: Run Unit Tests
+        run: gradle test --stacktrace
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: "**/build/reports/tests/**"
+          retention-days: 7
+
+      - name: Build Debug APK
+        run: gradle assembleDebug --stacktrace
+
+      - name: Verify APK Generated
+        run: |
+          ls -la app/build/outputs/apk/debug/
+          test -f app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload APK to GitHub Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: RizzCam-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+
+      - name: Create GitHub Release with APK
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        with:
+          tag_name: v1.0.0
+          name: "RizzCam v1.0.0 Release"
+          body: |
+            ### 📸 RizzCam v1.0.0 — Analog Photography & Retro Video Simulation
+            
+            **Direct Download:**
+            Download `RizzCam-v1.0.0-debug.apk` below and install it directly on your Android phone (Android 9.0+).
+            
+            #### Features Included:
+            - **8 Signature Camera Presets**: Portra 400 (`KP 400`), Fuji Superia Half-Frame (`FS 400H`), Canon PowerShot CCD (`CCD 2000`), Contax T2 (`CT2F Paparazzi`), CineStill 800T (`OFM 19P`), Holga 120N (`HOGA 120`), Polaroid SX-70 (`PAF 70`), Aerochrome IR (`IR 400`).
+            - **Multi-Pass Shader Pipeline**: 3D LUT grading, Brown-Conrady chromatic aberration, optical halation bloom, Ashima simplex film grain, $\cos^4\theta$ optical vignetting.
+            - **Olympus PEN Diptych Stitcher**: 2-shot 3:4 portrait framing into 3:2 landscape composite with 14px metal divider.
+            - **Skeuomorphic Viewfinder**: Concave red shutter button, 1/3-stop knurled EV thumbwheel, amber quartz LCD HUD, lens turret, tactile haptics.
+            - **Optical Accessories**: 3-facet glass prism, star flare, fisheye barrel distortion.
+            - **Retro Video Recorder**: 18 FPS Super 8 flutter, 24 FPS cinema, 30 FPS VHS camcorder.
+            - **Polaroid SX-70 Instant Development**: 3.0s chemical dye diffusion with flick-to-dismiss gesture physics.
+            - **35mm Lightbox Contact Sheet Gallery**: Full negative strip with rebate edge codes and Photolab Development Slip.
+          files: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/debug/app-debug.apk#RizzCam-v1.0.0-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

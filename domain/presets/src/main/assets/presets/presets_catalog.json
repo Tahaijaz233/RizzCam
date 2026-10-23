@@ -1,0 +1,202 @@
+[
+  {
+    "id": "portra_400_35mm",
+    "displayName": "KP 400",
+    "subtitle": "Warm Skin Tones • Fine 35mm Grain",
+    "category": "VINTAGE_135",
+    "aspectRatio": "RATIO_3_2",
+    "lut": {
+      "assetPath": "presets/luts/portra_400.raw3d",
+      "lutSize": 64,
+      "isHaldClut": false,
+      "defaultIntensity": 0.95,
+      "temperatureShift": 0.08,
+      "tintShift": -0.03
+    },
+    "aberration": { "strength": 0.0035, "cubicDistortion": -0.008, "falloffPower": 2.4 },
+    "halation": { "enabled": true, "threshold": 0.82, "knee": 0.15, "blurRadius": 1.8, "tintRgb": [1.0, 0.32, 0.12], "strength": 0.30 },
+    "grain": { "intensity": 0.09, "particleSize": 1.2, "colorNoiseRatio": 0.20 },
+    "compositing": {
+      "vignetteIntensity": 0.55,
+      "vignetteSmoothness": 0.75,
+      "lightLeakPool": ["presets/leaks/leak_warm_01.png"],
+      "borderMaskAsset": "presets/borders/35mm_sprocket.png",
+      "enableDateStamp": true
+    }
+  },
+  {
+    "id": "fuji_superia_half",
+    "displayName": "FS 400H Half",
+    "subtitle": "Emerald Shadows • Diptych Half-Frame",
+    "category": "VINTAGE_135",
+    "aspectRatio": "HALF_FRAME_DIPTYCH",
+    "lut": {
+      "assetPath": "presets/luts/fuji_superia_400.raw3d",
+      "lutSize": 64,
+      "isHaldClut": false,
+      "defaultIntensity": 1.0,
+      "temperatureShift": -0.05,
+      "tintShift": -0.08
+    },
+    "aberration": { "strength": 0.008, "cubicDistortion": -0.022, "falloffPower": 2.0 },
+    "halation": { "enabled": true, "threshold": 0.76, "knee": 0.12, "blurRadius": 2.5, "tintRgb": [1.0, 0.22, 0.06], "strength": 0.55 },
+    "grain": { "intensity": 0.16, "particleSize": 1.65, "colorNoiseRatio": 0.35 },
+    "compositing": {
+      "vignetteIntensity": 0.80,
+      "vignetteSmoothness": 0.65,
+      "lightLeakPool": ["presets/leaks/leak_side_burn.png"],
+      "borderMaskAsset": "presets/borders/half_frame_divider.png",
+      "enableDateStamp": true
+    }
+  },
+  {
+    "id": "ccd_power_shot",
+    "displayName": "CCD 2000",
+    "subtitle": "Y2K Flash • Sharp CCD Colors",
+    "category": "DIGITAL",
+    "aspectRatio": "RATIO_4_3",
+    "lut": {
+      "assetPath": "presets/luts/ccd_powershot.raw3d",
+      "lutSize": 64,
+      "isHaldClut": false,
+      "defaultIntensity": 1.0,
+      "temperatureShift": 0.0,
+      "tintShift": 0.0
+    },
+    "aberration": { "strength": 0.005, "cubicDistortion": -0.004, "falloffPower": 2.2 },
+    "halation": { "enabled": true, "threshold": 0.92, "knee": 0.08, "blurRadius": 1.2, "tintRgb": [0.8, 0.9, 1.0], "strength": 0.20 },
+    "grain": { "intensity": 0.14, "particleSize": 1.1, "colorNoiseRatio": 0.70 },
+    "compositing": {
+      "vignetteIntensity": 0.35,
+      "vignetteSmoothness": 0.85,
+      "lightLeakPool": [],
+      "borderMaskAsset": null,
+      "enableDateStamp": true
+    }
+  },
+  {
+    "id": "contax_t2_party",
+    "displayName": "CT2F Paparazzi",
+    "subtitle": "Carl Zeiss 38mm • High-Key Flash",
+    "category": "VINTAGE_135",
+    "aspectRatio": "RATIO_3_2",
+    "lut": {
+      "assetPath": "presets/luts/contax_t2.raw3d",
+      "lutSize": 64,
+      "isHaldClut": false,
+      "defaultIntensity": 1.0,
+      "temperatureShift": 0.06,
+      "tintShift": 0.04
+    },
+    "aberration": { "strength": 0.004, "cubicDistortion": -0.006, "falloffPower": 2.5 },
+    "halation": { "enabled": true, "threshold": 0.78, "knee": 0.14, "blurRadius": 2.0, "tintRgb": [1.0, 0.38, 0.15], "strength": 0.40 },
+    "grain": { "intensity": 0.10, "particleSize": 1.3, "colorNoiseRatio": 0.15 },
+    "compositing": {
+      "vignetteIntensity": 0.50,
+      "vignetteSmoothness": 0.70,
+      "lightLeakPool": ["presets/leaks/leak_warm_01.png"],
+      "borderMaskAsset": null,
+      "enableDateStamp": true
+    }
+  },
+  {
+    "id": "cinestill_800t",
+    "displayName": "OFM 19P",
+    "subtitle": "500T Movie Film • Red Halation",
+    "category": "VINTAGE_135",
+    "aspectRatio": "RATIO_3_2",
+    "lut": {
+      "assetPath": "presets/luts/cinestill_800t.raw3d",
+      "lutSize": 64,
+      "isHaldClut": false,
+      "defaultIntensity": 1.0,
+      "temperatureShift": -0.08,
+      "tintShift": 0.02
+    },
+    "aberration": { "strength": 0.005, "cubicDistortion": -0.010, "falloffPower": 2.2 },
+    "halation": { "enabled": true, "threshold": 0.72, "knee": 0.16, "blurRadius": 3.2, "tintRgb": [1.0, 0.20, 0.05], "strength": 0.85 },
+    "grain": { "intensity": 0.15, "particleSize": 1.5, "colorNoiseRatio": 0.30 },
+    "compositing": {
+      "vignetteIntensity": 0.65,
+      "vignetteSmoothness": 0.75,
+      "lightLeakPool": [],
+      "borderMaskAsset": null,
+      "enableDateStamp": true
+    }
+  },
+  {
+    "id": "holga_120n",
+    "displayName": "HOGA 120",
+    "subtitle": "Toy Plastic Lens • Extreme Vignette",
+    "category": "VINTAGE_120",
+    "aspectRatio": "RATIO_1_1",
+    "lut": {
+      "assetPath": "presets/luts/holga_120.raw3d",
+      "lutSize": 64,
+      "isHaldClut": false,
+      "defaultIntensity": 1.0,
+      "temperatureShift": 0.02,
+      "tintShift": -0.05
+    },
+    "aberration": { "strength": 0.022, "cubicDistortion": -0.060, "falloffPower": 1.6 },
+    "halation": { "enabled": false, "threshold": 0.85, "knee": 0.15, "blurRadius": 1.5, "tintRgb": [1.0, 0.4, 0.1], "strength": 0.2 },
+    "grain": { "intensity": 0.24, "particleSize": 2.2, "colorNoiseRatio": 0.40 },
+    "compositing": {
+      "vignetteIntensity": 1.45,
+      "vignetteSmoothness": 0.35,
+      "lightLeakPool": ["presets/leaks/leak_side_burn.png"],
+      "borderMaskAsset": "presets/borders/square_120.png",
+      "enableDateStamp": false
+    }
+  },
+  {
+    "id": "polaroid_sx70",
+    "displayName": "PAF 70",
+    "subtitle": "Classic Instant • White Frame",
+    "category": "INSTANT",
+    "aspectRatio": "RATIO_4_3",
+    "lut": {
+      "assetPath": "presets/luts/polaroid_sx70.raw3d",
+      "lutSize": 64,
+      "isHaldClut": false,
+      "defaultIntensity": 1.0,
+      "temperatureShift": -0.04,
+      "tintShift": 0.06
+    },
+    "aberration": { "strength": 0.007, "cubicDistortion": -0.015, "falloffPower": 2.0 },
+    "halation": { "enabled": true, "threshold": 0.80, "knee": 0.12, "blurRadius": 2.2, "tintRgb": [1.0, 0.35, 0.15], "strength": 0.35 },
+    "grain": { "intensity": 0.18, "particleSize": 1.8, "colorNoiseRatio": 0.45 },
+    "compositing": {
+      "vignetteIntensity": 0.70,
+      "vignetteSmoothness": 0.65,
+      "lightLeakPool": [],
+      "borderMaskAsset": "presets/borders/polaroid_frame.png",
+      "enableDateStamp": false
+    }
+  },
+  {
+    "id": "aerochrome_ir",
+    "displayName": "IR 400",
+    "subtitle": "Infrared False Color • Pink Foliage",
+    "category": "VINTAGE_135",
+    "aspectRatio": "RATIO_3_2",
+    "lut": {
+      "assetPath": "presets/luts/aerochrome.raw3d",
+      "lutSize": 64,
+      "isHaldClut": false,
+      "defaultIntensity": 1.0,
+      "temperatureShift": 0.0,
+      "tintShift": 0.0
+    },
+    "aberration": { "strength": 0.012, "cubicDistortion": -0.018, "falloffPower": 2.1 },
+    "halation": { "enabled": true, "threshold": 0.65, "knee": 0.20, "blurRadius": 4.0, "tintRgb": [1.0, 0.15, 0.45], "strength": 0.75 },
+    "grain": { "intensity": 0.20, "particleSize": 1.7, "colorNoiseRatio": 0.25 },
+    "compositing": {
+      "vignetteIntensity": 0.85,
+      "vignetteSmoothness": 0.70,
+      "lightLeakPool": [],
+      "borderMaskAsset": null,
+      "enableDateStamp": false
+    }
+  }
+]
