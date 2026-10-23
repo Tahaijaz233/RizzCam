@@ -3,6 +3,7 @@ package com.vintagecam.feature.viewfinder.viewmodel
 import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.PointF
 import android.net.Uri
 import android.util.Log
@@ -14,6 +15,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.vintagecam.core.camera.CameraController
+import com.vintagecam.feature.viewfinder.model.FramingGeometryHelper
+import java.io.IOException
+import kotlin.math.roundToInt
 import com.vintagecam.core.camera.capture.HighResCaptureManager
 import com.vintagecam.core.camera.diptych.DiptychResult
 import com.vintagecam.core.camera.diptych.HalfFrameDiptychManager
@@ -29,10 +33,15 @@ import com.vintagecam.domain.presets.model.CameraPreset
 import com.vintagecam.domain.presets.repository.PresetRepository
 import com.vintagecam.domain.presets.repository.PresetRepositoryImpl
 import com.vintagecam.feature.viewfinder.haptics.RetroHapticsEngine
+import com.vintagecam.feature.viewfinder.model.CameraModel
+import com.vintagecam.feature.viewfinder.model.DazzCameraCatalog
 import com.vintagecam.feature.viewfinder.model.DiptychCaptureStep
+import com.vintagecam.feature.viewfinder.model.OpticalAccessory
 import com.vintagecam.feature.viewfinder.model.ViewfinderState
 import com.vintagecam.feature.viewfinder.ui.components.LensFocalLength
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,9 +56,9 @@ import kotlinx.coroutines.withContext
  * - Orchestrates CameraX lifecycle and state flow updates from [CameraController].
  * - Loads and maintains active analog film stock presets via [PresetRepository].
  * - Implements the half-frame diptych capture state machine (shot 1/2 stored, shot 2/2 stitch).
- * - Manages physical lens focal length switching (28mm, 35mm, 50mm, Fisheye).
+ * - Manages physical lens focal length switching (18mm to 135mm framing zoom).
  * - Controls manual exposure compensation (-2.0 EV to +2.0 EV).
- * - Handles high-resolution shutter release, offscreen 6-pass GL rendering, and MediaStore export.
+ * - Handles high-resolution shutter release, offscreen 6-pass GL rendering, optical framing crop, and MediaStore export.
  */
 class ViewfinderViewModel @JvmOverloads constructor(
     application: Application,
@@ -85,6 +94,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
 
     private var activeLifecycleOwner: LifecycleOwner? = null
     private var activeSurfaceProvider: Preview.SurfaceProvider? = null
+    private var timerJob: Job? = null
 
     init {
         loadPresets()
@@ -152,6 +162,38 @@ class ViewfinderViewModel @JvmOverloads constructor(
     }
 
     /**
+     * Selects a camera model from the Dazz catalog, updating active preset, default focal length,
+     * and closing open sheets.
+     */
+    fun selectCameraModel(model: CameraModel) {
+        haptics.cameraSwitch()
+        val matchingPreset = _state.value.presets.firstOrNull { it.id == model.underlyingPresetId }
+            ?: _state.value.presets.firstOrNull()
+
+        if (model.aspectRatio != AspectRatioProfile.HALF_FRAME_DIPTYCH) {
+            diptychManager.cancelPendingFrame()
+        }
+
+        _state.update { current ->
+            val resetDiptych = if (model.aspectRatio != AspectRatioProfile.HALF_FRAME_DIPTYCH) {
+                DiptychCaptureStep.IDLE
+            } else {
+                current.diptychStep
+            }
+            current.copy(
+                activeCameraModel = model,
+                activePreset = matchingPreset ?: current.activePreset,
+                focalLengthMm = model.defaultFocalLengthMm,
+                diptychStep = resetDiptych,
+                firstDiptychUri = if (resetDiptych == DiptychCaptureStep.IDLE) null else current.firstDiptychUri,
+                isPresetDrawerOpen = false,
+                isFullCatalogOpen = false,
+                isSampleDialogOpen = false
+            )
+        }
+    }
+
+    /**
      * Selects an analog film stock or optical camera preset from the vault.
      */
     fun selectPreset(preset: CameraPreset) {
@@ -161,7 +203,6 @@ class ViewfinderViewModel @JvmOverloads constructor(
         }
 
         _state.update { current ->
-            // Reset diptych sequence if moving away from half-frame
             val resetDiptych = if (preset.aspectRatio != AspectRatioProfile.HALF_FRAME_DIPTYCH) {
                 DiptychCaptureStep.IDLE
             } else {
@@ -175,7 +216,28 @@ class ViewfinderViewModel @JvmOverloads constructor(
         }
     }
 
+    /**
+     * Updates optical focal length millimeter (18mm to 135mm).
+     * In accordance with physical vintage framing mechanics, hardware sensor zoom stays 1.0f.
+     */
+    fun setFocalLengthMm(mm: Int) {
+        val clamped = mm.coerceIn(18, 135)
+        if (_state.value.focalLengthMm != clamped) {
+            haptics.tick()
+            _state.update { it.copy(focalLengthMm = clamped) }
+        }
+    }
+
+    /**
+     * Selects an optical accessory filter (Fisheye, ND, Color Gel, Prism, Star).
+     */
+    fun selectAccessory(accessory: OpticalAccessory) {
+        haptics.tick()
+        _state.update { it.copy(activeAccessory = accessory) }
+    }
+
     fun openPresetDrawer() {
+        haptics.tick()
         _state.update { it.copy(isPresetDrawerOpen = true) }
     }
 
@@ -183,12 +245,139 @@ class ViewfinderViewModel @JvmOverloads constructor(
         _state.update { it.copy(isPresetDrawerOpen = false) }
     }
 
+    fun togglePresetDrawer() {
+        haptics.tick()
+        _state.update { it.copy(isPresetDrawerOpen = !it.isPresetDrawerOpen) }
+    }
+
+    fun openFullCatalog() {
+        haptics.tick()
+        _state.update { it.copy(isFullCatalogOpen = true, isPresetDrawerOpen = false) }
+    }
+
+    fun closeFullCatalog() {
+        _state.update { it.copy(isFullCatalogOpen = false) }
+    }
+
+    fun openSettings() {
+        haptics.tick()
+        _state.update { it.copy(isSettingsOpen = true) }
+    }
+
+    fun closeSettings() {
+        _state.update { it.copy(isSettingsOpen = false) }
+    }
+
+    fun openSampleDialog() {
+        haptics.tick()
+        _state.update { it.copy(isSampleDialogOpen = true) }
+    }
+
+    fun closeSampleDialog() {
+        _state.update { it.copy(isSampleDialogOpen = false) }
+    }
+
+    fun toggleFocalLengthPicker() {
+        haptics.tick()
+        _state.update { it.copy(isFocalLengthPickerOpen = !it.isFocalLengthPickerOpen) }
+    }
+
+    fun closeFocalLengthPicker() {
+        _state.update { it.copy(isFocalLengthPickerOpen = false) }
+    }
+
+    /**
+     * Cycles camera aspect ratio between 3:2, 4:3, 1:1, 6:7.
+     */
+    fun cycleAspectRatio() {
+        haptics.tick()
+        val currentAspect = _state.value.activeCameraModel.aspectRatio
+        val nextAspect = when (currentAspect) {
+            AspectRatioProfile.RATIO_3_2 -> AspectRatioProfile.RATIO_4_3
+            AspectRatioProfile.RATIO_4_3 -> AspectRatioProfile.RATIO_1_1
+            AspectRatioProfile.RATIO_1_1 -> AspectRatioProfile.RATIO_6_7
+            AspectRatioProfile.RATIO_6_7 -> AspectRatioProfile.RATIO_3_2
+            AspectRatioProfile.HALF_FRAME_DIPTYCH -> AspectRatioProfile.RATIO_4_3
+        }
+        _state.update { current ->
+            current.copy(
+                activeCameraModel = current.activeCameraModel.copy(aspectRatio = nextAspect)
+            )
+        }
+    }
+
+    /**
+     * Toggles double exposure mode.
+     */
+    fun toggleDoubleExposure() {
+        haptics.tick()
+        _state.update { it.copy(isDoubleExposureEnabled = !it.isDoubleExposureEnabled) }
+    }
+
+    /**
+     * Cycles self-timer seconds: 0s -> 3s -> 10s -> 0s.
+     */
+    fun toggleSelfTimer() {
+        haptics.tick()
+        val nextSeconds = when (_state.value.selfTimerSeconds) {
+            0 -> 3
+            3 -> 10
+            else -> 0
+        }
+        _state.update { it.copy(selfTimerSeconds = nextSeconds) }
+    }
+
+    /**
+     * Cycles EV exposure compensation through discrete stops: -2 -> -1 -> 0 -> +1 -> +2.
+     */
+    fun cycleEvCompensation() {
+        haptics.tick()
+        val currentEv = _state.value.evCompensation
+        val nextEv = when {
+            currentEv <= -1.5f -> -1.0f
+            currentEv <= -0.5f -> 0.0f
+            currentEv <= 0.5f -> 1.0f
+            currentEv <= 1.5f -> 2.0f
+            else -> -2.0f
+        }
+        setEvCompensation(nextEv)
+    }
+
+    fun setGridEnabled(enabled: Boolean) {
+        haptics.tick()
+        _state.update { it.copy(gridEnabled = enabled) }
+    }
+
+    fun setDateStampEnabled(enabled: Boolean) {
+        haptics.tick()
+        _state.update { it.copy(dateStampEnabled = enabled) }
+    }
+
+    fun setSoundEnabled(enabled: Boolean) {
+        haptics.tick()
+        _state.update { it.copy(soundEnabled = enabled) }
+    }
+
+    fun setHapticsEnabled(enabled: Boolean) {
+        haptics.tick()
+        _state.update { it.copy(hapticsEnabled = enabled) }
+    }
+
+    fun setSaveOriginalEnabled(enabled: Boolean) {
+        haptics.tick()
+        _state.update { it.copy(saveOriginalEnabled = enabled) }
+    }
+
+    fun setSelfTimerSeconds(seconds: Int) {
+        haptics.tick()
+        _state.update { it.copy(selfTimerSeconds = seconds) }
+    }
+
     /**
      * Changes optical focal length simulation and sets CameraX zoom ratio.
      */
     fun selectLens(lens: LensFocalLength) {
-        _state.update { it.copy(selectedLens = lens) }
-        cameraController.setZoomRatio(lens.zoomRatio)
+        _state.update { it.copy(selectedLens = lens, focalLengthMm = lens.mm) }
     }
 
     /**
@@ -238,11 +427,45 @@ class ViewfinderViewModel @JvmOverloads constructor(
 
     /**
      * Handles pinch-to-zoom gesture scale delta.
+     * In accordance with physical vintage framing mechanics, hardware sensor zoom stays 1.0f.
+     * Zooming dynamically adjusts physical optical framing focal length (18mm to 135mm).
      */
     fun onZoomGesture(zoomDelta: Float) {
-        val currentRatio = _state.value.zoomRatio
-        val targetRatio = currentRatio * zoomDelta
-        cameraController.setZoomRatio(targetRatio)
+        val currentMm = _state.value.focalLengthMm
+        val newMm = (currentMm * zoomDelta).roundToInt().coerceIn(18, 135)
+        if (newMm != currentMm) {
+            setFocalLengthMm(newMm)
+        }
+    }
+
+    /**
+     * Primary shutter actuator button entry point that coordinates self-timer countdown
+     * before firing capture.
+     */
+    fun onShutterPressed(onPhotoCaptured: ((Uri?) -> Unit)? = null) {
+        if (_state.value.isCapturing) return
+
+        val timerSec = _state.value.selfTimerSeconds
+        if (timerSec > 0) {
+            if (_state.value.isSelfTimerCountingDown) {
+                // Cancel active countdown if tapped again
+                timerJob?.cancel()
+                _state.update { it.copy(isSelfTimerCountingDown = false, countdownRemaining = 0) }
+                return
+            }
+            timerJob = viewModelScope.launch {
+                _state.update { it.copy(isSelfTimerCountingDown = true, countdownRemaining = timerSec) }
+                for (sec in timerSec downTo 1) {
+                    _state.update { it.copy(countdownRemaining = sec) }
+                    haptics.tick()
+                    delay(1000)
+                }
+                _state.update { it.copy(isSelfTimerCountingDown = false, countdownRemaining = 0) }
+                takePhoto(onPhotoCaptured)
+            }
+        } else {
+            takePhoto(onPhotoCaptured)
+        }
     }
 
     /**
@@ -315,7 +538,16 @@ class ViewfinderViewModel @JvmOverloads constructor(
         val ev = _state.value.evCompensation
         val captureResult = executeCaptureAndFilter(imageCapture, activePreset, isFront, ev)
 
-        when (val diptychResult = diptychManager.processFrame(captureResult.bitmap)) {
+        val croppedBitmap = cropToFramingGeometry(
+            bitmap = captureResult.bitmap,
+            aspectRatio = activePreset.aspectRatio,
+            focalLengthMm = _state.value.focalLengthMm
+        )
+        if (croppedBitmap != captureResult.bitmap && !captureResult.bitmap.isRecycled) {
+            captureResult.bitmap.recycle()
+        }
+
+        when (val diptychResult = diptychManager.processFrame(croppedBitmap)) {
             is DiptychResult.FirstFrameStored -> {
                 haptics.diptychAdvance()
                 _state.update {
@@ -370,9 +602,17 @@ class ViewfinderViewModel @JvmOverloads constructor(
         val ev = _state.value.evCompensation
         val captureResult = executeCaptureAndFilter(imageCapture, activePreset, isFront, ev)
 
+        val targetAspect = _state.value.activeCameraModel.aspectRatio
+        val focalLengthMm = _state.value.focalLengthMm
+        val croppedBitmap = cropToFramingGeometry(
+            bitmap = captureResult.bitmap,
+            aspectRatio = targetAspect,
+            focalLengthMm = focalLengthMm
+        )
+
         try {
             val exportResult = mediaStoreExporter.exportPhoto(
-                bitmap = captureResult.bitmap,
+                bitmap = croppedBitmap,
                 preset = activePreset,
                 metadata = captureResult.exifMetadata
             )
@@ -399,8 +639,138 @@ class ViewfinderViewModel @JvmOverloads constructor(
 
             onPhotoCaptured?.invoke(exportResult.uri)
         } finally {
+            if (croppedBitmap != captureResult.bitmap && !croppedBitmap.isRecycled) {
+                croppedBitmap.recycle()
+            }
             if (!captureResult.bitmap.isRecycled) {
                 captureResult.bitmap.recycle()
+            }
+        }
+    }
+
+    /**
+     * Crops full-sensor captured bitmap to the exact framing rectangle specified by
+     * the active focal length millimeter scale and aspect ratio.
+     */
+    private fun cropToFramingGeometry(
+        bitmap: Bitmap,
+        aspectRatio: AspectRatioProfile,
+        focalLengthMm: Int
+    ): Bitmap {
+        return FramingGeometryHelper.cropBitmapToFraming(bitmap, aspectRatio, focalLengthMm)
+    }
+
+    /**
+     * Ingests an external photo from the user's gallery (via the 🖼️+ Import button),
+     * applies the active vintage analog preset (3D LUT, grain, light leak, halation, frame border),
+     * crops to framing geometry, exports the graded photo to MediaStore under Pictures/RizzCam,
+     * advances the frame counter, and triggers the instant photo preview if applicable.
+     */
+    fun importAndProcessPhoto(uri: Uri) {
+        val activePreset = _state.value.activePreset ?: return
+        if (_state.value.isCapturing) return
+
+        viewModelScope.launch(Dispatchers.Default) {
+            _state.update { it.copy(isCapturing = true) }
+            try {
+                val context = getApplication<Application>().applicationContext
+                val inputStream = context.contentResolver.openInputStream(uri)
+                    ?: throw IOException("Unable to open stream for URI: $uri")
+
+                val sourceBitmap = BitmapFactory.decodeStream(inputStream)
+                inputStream.close()
+
+                if (sourceBitmap == null) {
+                    throw IOException("Failed to decode bitmap from image URI")
+                }
+
+                ensureCapturePipelineInitialized()
+                val pipeline = capturePipeline ?: throw IllegalStateException("Capture pipeline not available")
+                val assets = getApplication<Application>().assets
+
+                val (lutId, leakId, borderId) = captureGlExecutor.postWithResult {
+                    val lut = captureTextureCache.getOrLoadLut3d(assets, activePreset.lut.assetPath, activePreset.lut.lutSize)
+                    val leak = captureTextureCache.getOrLoadLightLeak(assets, activePreset.compositing.lightLeakPool.firstOrNull())
+                    val border = captureTextureCache.getOrLoadBorderMask(assets, activePreset.compositing.borderMaskAsset)
+                    Triple(lut, leak, border)
+                }
+
+                val captureManager = HighResCaptureManager(
+                    context = context,
+                    glThreadExecutor = captureGlExecutor,
+                    pipeline = pipeline
+                )
+
+                val gradedBitmap = captureGlExecutor.postWithResult {
+                    captureManager.renderGlPipelineOffscreen(
+                        sourceBitmap = sourceBitmap,
+                        preset = activePreset,
+                        lutTextureId = lutId,
+                        lightLeakTextureId = leakId,
+                        borderMaskTextureId = borderId,
+                        exposureEv = _state.value.evCompensation
+                    )
+                }
+
+                val targetAspect = _state.value.activeCameraModel.aspectRatio
+                val croppedBitmap = FramingGeometryHelper.cropBitmapToFraming(
+                    bitmap = gradedBitmap,
+                    aspectRatio = targetAspect,
+                    focalLengthMm = _state.value.focalLengthMm
+                )
+
+                try {
+                    val defaultExif = com.vintagecam.core.camera.exif.CapturedExifMetadata(
+                        focalLengthMm = _state.value.focalLengthMm.toFloat(),
+                        fNumber = 2.0f,
+                        iso = 400,
+                        exposureTimeSeconds = 1.0 / 60.0,
+                        flashFired = false,
+                        dateTimeOriginal = java.text.SimpleDateFormat("yyyy:MM:dd HH:mm:ss", java.util.Locale.US).format(java.util.Date()),
+                        cameraMake = "VintageCam",
+                        cameraModel = _state.value.activeCameraModel.name,
+                        lensModel = "${_state.value.focalLengthMm}mm Prime",
+                        isFrontCamera = false,
+                        orientation = 0
+                    )
+
+                    val exportResult = mediaStoreExporter.exportPhoto(
+                        bitmap = croppedBitmap,
+                        preset = activePreset,
+                        metadata = defaultExif
+                    )
+
+                    advanceFrameCounter()
+                    haptics.shutterClick()
+
+                    _lastCapturedPhotoUri.value = exportResult.uri
+                    _state.update {
+                        it.copy(
+                            recentThumbnailUri = exportResult.uri
+                        )
+                    }
+
+                    if (activePreset.id.contains("polaroid", ignoreCase = true) || activePreset.id.contains("sx70", ignoreCase = true)) {
+                        _state.update {
+                            it.copy(
+                                isInstantPhotoVisible = true,
+                                instantPhotoUri = exportResult.uri
+                            )
+                        }
+                    }
+                } finally {
+                    if (croppedBitmap != gradedBitmap && !croppedBitmap.isRecycled) {
+                        croppedBitmap.recycle()
+                    }
+                    if (!gradedBitmap.isRecycled) {
+                        gradedBitmap.recycle()
+                    }
+                }
+            } catch (t: Throwable) {
+                Log.e(TAG, "Import photo processing failed", t)
+                _state.update { it.copy(errorMessage = "Photo import failed: ${t.message}") }
+            } finally {
+                _state.update { it.copy(isCapturing = false) }
             }
         }
     }

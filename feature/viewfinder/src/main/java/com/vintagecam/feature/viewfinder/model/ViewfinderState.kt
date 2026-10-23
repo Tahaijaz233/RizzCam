@@ -5,6 +5,7 @@ import android.net.Uri
 import com.vintagecam.core.camera.model.FlashMode
 import com.vintagecam.core.camera.model.FocusMeteringState
 import com.vintagecam.core.camera.model.LensFacing
+import com.vintagecam.domain.presets.model.AspectRatioProfile
 import com.vintagecam.domain.presets.model.CameraPreset
 import com.vintagecam.feature.viewfinder.ui.components.LensFocalLength
 
@@ -24,14 +25,30 @@ data class ViewfinderState(
     val isInitialized: Boolean = false,
     val presets: List<CameraPreset> = emptyList(),
     val activePreset: CameraPreset? = null,
+    val activeCameraModel: CameraModel = DazzCameraCatalog.findById("cpm35"),
     val isPresetDrawerOpen: Boolean = false,
-    val selectedLens: LensFocalLength = LensFocalLength.LENS_28MM,
-    val evCompensation: Float = 0.0f,
+    val isFullCatalogOpen: Boolean = false,
+    val isSettingsOpen: Boolean = false,
+    val isSampleDialogOpen: Boolean = false,
+    val isFocalLengthPickerOpen: Boolean = false,
+    val focalLengthMm: Int = 35,
+    val selectedLens: LensFocalLength = LensFocalLength.LENS_35MM,
+    val activeAccessory: OpticalAccessory = OpticalAccessory.NONE,
+    val evCompensation: Float = 1.0f,
     val flashMode: FlashMode = FlashMode.AUTO,
     val isTorchEnabled: Boolean = false,
     val hasFlashUnit: Boolean = false,
     val lensFacing: LensFacing = LensFacing.BACK,
     val isCapturing: Boolean = false,
+    val isSelfTimerCountingDown: Boolean = false,
+    val countdownRemaining: Int = 0,
+    val selfTimerSeconds: Int = 0,
+    val isDoubleExposureEnabled: Boolean = false,
+    val gridEnabled: Boolean = true,
+    val dateStampEnabled: Boolean = false,
+    val soundEnabled: Boolean = true,
+    val hapticsEnabled: Boolean = true,
+    val saveOriginalEnabled: Boolean = false,
     val diptychStep: DiptychCaptureStep = DiptychCaptureStep.IDLE,
     val firstDiptychUri: Uri? = null,
     val currentFrame: Int = 1,

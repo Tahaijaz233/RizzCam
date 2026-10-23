@@ -74,25 +74,20 @@ import kotlinx.coroutines.launch
 fun GlViewfinderSurface(
     preset: CameraPreset,
     evCompensation: Float,
-    focusState: FocusMeteringState,
-    focusPoint: PointF?,
+    focusState: FocusMeteringState = FocusMeteringState.IDLE,
+    focusPoint: PointF? = null,
     onSurfaceProviderReady: (Preview.SurfaceProvider) -> Unit,
-    onFocusTap: (x: Float, y: Float, viewWidth: Float, viewHeight: Float) -> Unit,
-    onZoomGesture: (zoomDelta: Float) -> Unit,
+    onFocusTap: ((x: Float, y: Float, viewWidth: Float, viewHeight: Float) -> Unit)? = null,
+    onZoomGesture: ((zoomDelta: Float) -> Unit)? = null,
+    showInternalOverlays: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val currentPreset by rememberUpdatedState(preset)
     val currentEv by rememberUpdatedState(evCompensation)
 
-    // Calculate aspect ratio float for the film gate container
-    val targetAspectRatio = when (preset.aspectRatio) {
-        AspectRatioProfile.RATIO_4_3 -> 3f / 4f // Portrait camera orientation
-        AspectRatioProfile.RATIO_3_2 -> 2f / 3f
-        AspectRatioProfile.RATIO_1_1 -> 1f
-        AspectRatioProfile.RATIO_6_7 -> 6f / 7f
-        AspectRatioProfile.HALF_FRAME_DIPTYCH -> 3f / 4f
-    }
+    // Standard portrait camera sensor aspect ratio (3:4)
+    val targetAspectRatio = 3f / 4f
 
     // Dedicated GL rendering engine controller
     val renderer = remember { GlViewfinderRenderer(context) }
@@ -109,40 +104,23 @@ fun GlViewfinderSurface(
         }
     }
 
-    BoxWithConstraints(
+    Box(
         modifier = modifier
-            .fillMaxSize(),
+            .fillMaxSize()
+            .then(gestureModifier),
         contentAlignment = Alignment.Center
     ) {
-        val containerWidth = maxWidth
-        val containerHeight = maxHeight
-
-        Box(
-            modifier = Modifier
-                .aspectRatio(targetAspectRatio)
-                .clip(RoundedCornerShape(8.dp))
-                .pointerInput(Unit) {
-                    detectTransformGestures { _, _, zoom, _ ->
-                        onZoomGesture(zoom)
-                    }
+        // Native OpenGL ES SurfaceView
+        AndroidView(
+            factory = { ctx ->
+                SurfaceView(ctx).apply {
+                    holder.addCallback(renderer)
                 }
-                .pointerInput(Unit) {
-                    detectTapGestures { offset ->
-                        onFocusTap(offset.x, offset.y, size.width.toFloat(), size.height.toFloat())
-                    }
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            // Native OpenGL ES SurfaceView
-            AndroidView(
-                factory = { ctx ->
-                    SurfaceView(ctx).apply {
-                        holder.addCallback(renderer)
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
+            },
+            modifier = Modifier.fillMaxSize()
+        )
 
+        if (showInternalOverlays) {
             // Film gate mask border overlay
             VintageFilmGateOverlay(
                 aspectRatio = preset.aspectRatio,
@@ -342,22 +320,9 @@ private class GlViewfinderRenderer(
         profile: AspectRatioProfile,
         outMatrix: FloatArray
     ) {
+        // Stream full uncropped sensor feed so the area outside the framing box
+        // accurately displays the uncaptured field-of-view under the semi-transparent scrim.
         System.arraycopy(sourceMatrix, 0, outMatrix, 0, 16)
-        // CameraX streams 4:3 native frames. For alternative profiles (3:2, 1:1, 3:4 diptych),
-        // we scale UVs from the center:
-        val scaleY = when (profile) {
-            AspectRatioProfile.RATIO_4_3 -> 1.0f
-            AspectRatioProfile.RATIO_3_2 -> 1.125f // Crops slightly vertically to achieve 3:2
-            AspectRatioProfile.RATIO_1_1 -> 1.333f // Center square crop
-            AspectRatioProfile.RATIO_6_7 -> 1.166f
-            AspectRatioProfile.HALF_FRAME_DIPTYCH -> 1.0f
-        }
-
-        if (scaleY != 1.0f) {
-            Matrix.translateM(outMatrix, 0, 0f, 0.5f, 0f)
-            Matrix.scaleM(outMatrix, 0, 1.0f, scaleY, 1.0f)
-            Matrix.translateM(outMatrix, 0, 0f, -0.5f, 0f)
-        }
     }
 
     fun release() {

@@ -190,7 +190,7 @@ class HighResCaptureManager(
      * Executes GL rendering on the GL thread with dedicated offscreen FBOs.
      * Consumes and recycles [sourceBitmap].
      */
-    private fun renderGlPipelineOffscreen(
+    fun renderGlPipelineOffscreen(
         sourceBitmap: Bitmap,
         preset: CameraPreset,
         lutTextureId: Int,
