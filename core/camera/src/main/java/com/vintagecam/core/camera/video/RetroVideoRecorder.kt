@@ -13,10 +13,9 @@ import android.util.Log
 import androidx.camera.video.FallbackStrategy
 import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.MediaStoreOutputOptions
-import androidx.camera.video.OutputOptions
+import androidx.camera.video.PendingRecording
 import androidx.camera.video.Quality
 import androidx.camera.video.QualitySelector
-import androidx.camera.video.RecordEvent
 import androidx.camera.video.Recorder
 import androidx.camera.video.Recording
 import androidx.camera.video.VideoRecordEvent
@@ -149,37 +148,37 @@ class RetroVideoRecorder(
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val fileName = "RIZZCAM_${_frameRateMode.value.name}_$timestamp.mp4"
 
-        val outputOptions: OutputOptions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        var pending: PendingRecording = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val contentValues = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                 put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
                 put(MediaStore.Video.Media.RELATIVE_PATH, OUTPUT_DIRECTORY_NAME)
             }
-            MediaStoreOutputOptions.Builder(
+            val options = MediaStoreOutputOptions.Builder(
                 context.contentResolver,
                 MediaStore.Video.Media.EXTERNAL_CONTENT_URI
             ).setContentValues(contentValues).build()
+            recorder.prepareRecording(context, options)
         } else {
             val moviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
             val targetDir = File(moviesDir, "RizzCam").apply { mkdirs() }
             val targetFile = File(targetDir, fileName)
-            FileOutputOptions.Builder(targetFile).build()
+            val options = FileOutputOptions.Builder(targetFile).build()
+            recorder.prepareRecording(context, options)
         }
-
-        val pendingRecording = recorder.prepareRecording(context, outputOptions)
 
         val canRecordAudio = audioEnabled &&
                 ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
                 PackageManager.PERMISSION_GRANTED
 
         if (canRecordAudio) {
-            pendingRecording.withAudioEnabled()
+            pending = pending.withAudioEnabled()
         }
 
         _recordingState.value = RecordingState.RECORDING
         startSimulationTicker()
 
-        activeRecording = pendingRecording.start(ContextCompat.getMainExecutor(context)) { event ->
+        activeRecording = pending.start(ContextCompat.getMainExecutor(context)) { event: VideoRecordEvent ->
             handleRecordEvent(event, onError, onSaved)
         }
     }
