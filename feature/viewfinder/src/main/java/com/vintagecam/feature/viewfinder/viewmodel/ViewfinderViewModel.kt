@@ -272,9 +272,9 @@ class ViewfinderViewModel(
         val assets = getApplication<Application>().assets
 
         val (lutId, leakId, borderId) = captureGlExecutor.postWithResult {
-            val lut = captureTextureCache.getOrLoadLut3d(assets, preset.lutConfig.assetPath, preset.lutConfig.lutSize)
-            val leak = captureTextureCache.getOrLoadLightLeak(assets, preset.compositingConfig.lightLeakAssetPath)
-            val border = captureTextureCache.getOrLoadBorderMask(assets, preset.compositingConfig.borderMaskAssetPath)
+            val lut = captureTextureCache.getOrLoadLut3d(assets, preset.lut.assetPath, preset.lut.lutSize)
+            val leak = captureTextureCache.getOrLoadLightLeak(assets, preset.compositing.lightLeakPool.firstOrNull())
+            val border = captureTextureCache.getOrLoadBorderMask(assets, preset.compositing.borderMaskAsset)
             Triple(lut, leak, border)
         }
 
