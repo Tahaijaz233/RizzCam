@@ -28,6 +28,10 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -52,4 +56,6 @@ dependencies {
     implementation("androidx.compose.animation:animation")
     implementation("androidx.compose.runtime:runtime")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
+
+    testImplementation("junit:junit:4.13.2")
 }
