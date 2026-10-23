@@ -310,8 +310,7 @@ class ViewfinderViewModel(
                 haptics.diptychAdvance()
                 _state.update {
                     it.copy(
-                        diptychStep = DiptychCaptureStep.FIRST_FRAME_STORED,
-                        recentThumbnailBitmap = diptychResult.firstFrameThumbnail
+                        diptychStep = DiptychCaptureStep.FIRST_FRAME_STORED
                     )
                 }
                 onPhotoCaptured?.invoke(null)
@@ -335,7 +334,6 @@ class ViewfinderViewModel(
                         it.copy(
                             diptychStep = DiptychCaptureStep.IDLE,
                             firstDiptychUri = null,
-                            recentThumbnailBitmap = exportResult.thumbnailBitmap,
                             recentThumbnailUri = exportResult.uri
                         )
                     }
@@ -376,7 +374,6 @@ class ViewfinderViewModel(
 
             _state.update {
                 it.copy(
-                    recentThumbnailBitmap = exportResult.thumbnailBitmap,
                     recentThumbnailUri = exportResult.uri
                 )
             }
