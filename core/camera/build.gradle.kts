@@ -27,10 +27,10 @@ dependencies {
     implementation(project(":core:common"))
 
     val cameraxVersion = "1.3.4"
-    implementation("androidx.camera:camera-core:$cameraxVersion")
-    implementation("androidx.camera:camera-camera2:$cameraxVersion")
-    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
-    implementation("androidx.camera:camera-video:$cameraxVersion")
+    api("androidx.camera:camera-core:$cameraxVersion")
+    api("androidx.camera:camera-camera2:$cameraxVersion")
+    api("androidx.camera:camera-lifecycle:$cameraxVersion")
+    api("androidx.camera:camera-video:$cameraxVersion")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
     implementation("androidx.concurrent:concurrent-futures-ktx:1.2.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")

@@ -83,6 +83,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -728,34 +730,20 @@ private fun MemorySafeThumbnail(
     val context = LocalContext.current
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
 
-    DisposableEffect(uri) {
-        var isDisposed = false
-        val job = kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+    LaunchedEffect(uri) {
+        val decoded = withContext(Dispatchers.IO) {
             try {
                 context.contentResolver.openInputStream(uri)?.use { stream ->
                     val options = BitmapFactory.Options().apply {
                         inSampleSize = 2 // Safeguard: prevents high-res bitmap leak
                     }
-                    val decoded = BitmapFactory.decodeStream(stream, null, options)
-                    withContext(Dispatchers.Main) {
-                        if (isDisposed) {
-                            decoded?.recycle()
-                        } else {
-                            bitmap = decoded
-                        }
-                    }
+                    BitmapFactory.decodeStream(stream, null, options)
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                null
             }
         }
-
-        onDispose {
-            isDisposed = true
-            job.cancel()
-            bitmap?.recycle()
-            bitmap = null
-        }
+        bitmap = decoded
     }
 
     val currentBitmap = bitmap
