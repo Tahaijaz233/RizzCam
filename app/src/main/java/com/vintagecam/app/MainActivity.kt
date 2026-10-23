@@ -70,7 +70,9 @@ sealed interface AppScreen {
  */
 class MainActivity : ComponentActivity() {
 
-    private val viewfinderViewModel: ViewfinderViewModel by viewModels()
+    private val viewfinderViewModel: ViewfinderViewModel by viewModels {
+        ViewfinderViewModel.Factory(application)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()

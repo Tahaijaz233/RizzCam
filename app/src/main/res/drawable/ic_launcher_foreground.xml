@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Mechanical Shutter Release Accent (Crimson Red / Vintage Amber) -->
+    <path
+        android:fillColor="#FF3D00"
+        android:pathData="M66,32 h8 a2,2 0 0,1 2,2 v3 h-12 v-3 a2,2 0 0,1 2,-2 z" />
+
+    <!-- Top Flash / Sensor Deck -->
+    <path
+        android:fillColor="#2C2C32"
+        android:pathData="M34,33 h16 a2,2 0 0,1 2,2 v3 h-20 v-3 a2,2 0 0,1 2,-2 z" />
+
+    <!-- Minimalist Camera Body Silhouette -->
+    <path
+        android:fillColor="#222228"
+        android:pathData="M30,37 h48 a6,6 0 0,1 6,6 v26 a6,6 0 0,1 -6,6 h-48 a6,6 0 0,1 -6,-6 v-26 a6,6 0 0,1 6,-6 z" />
+
+    <!-- Titanium Texture Accent Bar -->
+    <path
+        android:fillColor="#32323A"
+        android:pathData="M24,47 h60 v1 h-60 z" />
+
+    <!-- Rangefinder Viewfinder Glass -->
+    <path
+        android:fillColor="#18181C"
+        android:strokeColor="#FFB300"
+        android:strokeWidth="1"
+        android:pathData="M32,41 h7 a1,1 0 0,1 1,1 v4 a1,1 0 0,1 -1,1 h-7 a1,1 0 0,1 -1,-1 v-4 a1,1 0 0,1 1,-1 z" />
+
+    <!-- Lens Outer Barrel Ring -->
+    <path
+        android:fillColor="#1A1A1E"
+        android:strokeColor="#3A3A44"
+        android:strokeWidth="1.5"
+        android:pathData="M54,40 a16,16 0 1,0 0.001,0 z" />
+
+    <!-- Optical Gold Grading Ring (Signature RizzCam Accent) -->
+    <path
+        android:fillColor="#151518"
+        android:strokeColor="#FFB300"
+        android:strokeWidth="1.8"
+        android:pathData="M54,44 a12,12 0 1,0 0.001,0 z" />
+
+    <!-- Deep Lens Pupil -->
+    <path
+        android:fillColor="#0D0D10"
+        android:pathData="M54,49 a7,7 0 1,0 0.001,0 z" />
+
+    <!-- Optical Element Glint / Light Reflex -->
+    <path
+        android:fillColor="#FFF8E1"
+        android:pathData="M51,52 a2,2 0 1,0 0.001,0 z" />
+
+</vector>

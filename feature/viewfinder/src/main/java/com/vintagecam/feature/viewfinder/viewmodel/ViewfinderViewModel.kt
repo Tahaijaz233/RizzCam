@@ -10,6 +10,8 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.vintagecam.core.camera.CameraController
 import com.vintagecam.core.camera.capture.HighResCaptureManager
@@ -49,7 +51,7 @@ import kotlinx.coroutines.withContext
  * - Controls manual exposure compensation (-2.0 EV to +2.0 EV).
  * - Handles high-resolution shutter release, offscreen 6-pass GL rendering, and MediaStore export.
  */
-class ViewfinderViewModel(
+class ViewfinderViewModel @JvmOverloads constructor(
     application: Application,
     private val presetRepository: PresetRepository = PresetRepositoryImpl(application.applicationContext),
     val cameraController: CameraController = CameraController(application.applicationContext),
@@ -58,6 +60,14 @@ class ViewfinderViewModel(
 
     companion object {
         private const val TAG = "ViewfinderViewModel"
+
+        fun Factory(application: Application): ViewModelProvider.Factory =
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    return ViewfinderViewModel(application) as T
+                }
+            }
     }
 
     private val mediaStoreExporter = MediaStoreExporter(application.applicationContext)
