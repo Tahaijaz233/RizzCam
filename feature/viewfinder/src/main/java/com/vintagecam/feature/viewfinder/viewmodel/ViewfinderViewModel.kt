@@ -377,7 +377,13 @@ class ViewfinderViewModel @JvmOverloads constructor(
      * Changes optical focal length simulation and sets CameraX zoom ratio.
      */
     fun selectLens(lens: LensFocalLength) {
-        _state.update { it.copy(selectedLens = lens, focalLengthMm = lens.mm) }
+        val mm = when (lens) {
+            LensFocalLength.FISHEYE -> 18
+            LensFocalLength.LENS_28MM -> 28
+            LensFocalLength.LENS_35MM -> 35
+            LensFocalLength.LENS_50MM -> 50
+        }
+        _state.update { it.copy(selectedLens = lens, focalLengthMm = mm) }
     }
 
     /**
@@ -721,17 +727,11 @@ class ViewfinderViewModel @JvmOverloads constructor(
 
                 try {
                     val defaultExif = com.vintagecam.core.camera.exif.CapturedExifMetadata(
-                        focalLengthMm = _state.value.focalLengthMm.toFloat(),
-                        fNumber = 2.0f,
-                        iso = 400,
-                        exposureTimeSeconds = 1.0 / 60.0,
-                        flashFired = false,
-                        dateTimeOriginal = java.text.SimpleDateFormat("yyyy:MM:dd HH:mm:ss", java.util.Locale.US).format(java.util.Date()),
-                        cameraMake = "VintageCam",
-                        cameraModel = _state.value.activeCameraModel.name,
-                        lensModel = "${_state.value.focalLengthMm}mm Prime",
-                        isFrontCamera = false,
-                        orientation = 0
+                        iso = "400",
+                        fNumber = "2.0",
+                        focalLength = "${_state.value.focalLengthMm}/1",
+                        exposureTime = "1/60",
+                        dateTimeOriginal = java.text.SimpleDateFormat("yyyy:MM:dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())
                     )
 
                     val exportResult = mediaStoreExporter.exportPhoto(

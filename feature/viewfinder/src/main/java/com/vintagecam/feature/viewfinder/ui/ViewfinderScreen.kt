@@ -222,7 +222,7 @@ fun ViewfinderScreen(
                     }
 
                     // Floating Focal Length Picker Wheel (Pop-over)
-                    AnimatedVisibility(
+                    androidx.compose.animation.AnimatedVisibility(
                         visible = state.isFocalLengthPickerOpen,
                         enter = fadeIn() + slideInVertically { it / 2 },
                         exit = fadeOut() + slideOutVertically { it / 2 },

@@ -105,9 +105,7 @@ fun GlViewfinderSurface(
     }
 
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .then(gestureModifier),
+        modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         // Native OpenGL ES SurfaceView
