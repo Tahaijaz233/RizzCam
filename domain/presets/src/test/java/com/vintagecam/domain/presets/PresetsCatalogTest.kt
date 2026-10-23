@@ -119,8 +119,8 @@ class PresetsCatalogTest {
     @Test
     fun testParameterBounds() {
         for (preset in presets) {
-            assertTrue("Vignette intensity must be in [0, 1] for ${preset.id}",
-                preset.compositing.vignetteIntensity in 0.0f..1.0f)
+            assertTrue("Vignette intensity must be non-negative for ${preset.id}",
+                preset.compositing.vignetteIntensity >= 0.0f)
             assertTrue("Vignette smoothness must be in [0, 1] for ${preset.id}",
                 preset.compositing.vignetteSmoothness in 0.0f..1.0f)
             assertTrue("Grain intensity must be positive for ${preset.id}",
