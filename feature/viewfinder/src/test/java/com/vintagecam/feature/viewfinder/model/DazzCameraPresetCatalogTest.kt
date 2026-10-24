@@ -61,7 +61,7 @@ class DazzCameraPresetCatalogTest {
 
     @Test
     fun testAllCatalogCamerasResolveToValidPreset() {
-        val allCameras = DazzCameraCatalog.availableCameras
+        val allCameras = DazzCameraCatalog.allCameras
         assertTrue("Catalog must contain cameras", allCameras.isNotEmpty())
 
         for (camera in allCameras) {
@@ -79,11 +79,11 @@ class DazzCameraPresetCatalogTest {
 
     @Test
     fun testDifferentCamerasProduceDistinctFilterProfiles() {
-        val cpm35 = DazzCameraCatalog.availableCameras.first { it.id == "cpm35" }
-        val grdr = DazzCameraCatalog.availableCameras.first { it.id == "grd_r" }
-        val fx67 = DazzCameraCatalog.availableCameras.first { it.id == "fx67" }
-        val dclassic = DazzCameraCatalog.availableCameras.first { it.id == "d_classic" }
-        val instsq = DazzCameraCatalog.availableCameras.first { it.id == "inst_sq" }
+        val cpm35 = DazzCameraCatalog.allCameras.first { it.id == "cpm35" }
+        val grdr = DazzCameraCatalog.allCameras.first { it.id == "grd_r" }
+        val fx67 = DazzCameraCatalog.allCameras.first { it.id == "fx67" }
+        val dclassic = DazzCameraCatalog.allCameras.first { it.id == "d_classic" }
+        val instsq = DazzCameraCatalog.allCameras.first { it.id == "inst_sq" }
 
         val presetCpm35 = DazzCameraPresetCatalog.getPresetForCamera(cpm35, sampleBasePresets)
         val presetGrdr = DazzCameraPresetCatalog.getPresetForCamera(grdr, sampleBasePresets)
