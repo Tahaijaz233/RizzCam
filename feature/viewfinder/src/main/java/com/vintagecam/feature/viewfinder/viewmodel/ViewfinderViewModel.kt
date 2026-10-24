@@ -107,16 +107,20 @@ class ViewfinderViewModel @JvmOverloads constructor(
     }
 
     private fun ensureCapturePipelineInitialized() {
-        if (capturePipeline == null) {
-            captureGlExecutor.postAndWait {
-                if (capturePipeline == null) {
-                    val eglCore = EglCore(flags = EglCore.FLAG_TRY_GLES3)
-                    val pbuffer = eglCore.createOffscreenSurface(1, 1)
-                    eglCore.makeCurrent(pbuffer)
-                    captureEglCore = eglCore
-                    capturePbufferSurface = pbuffer
-                    capturePipeline = VintageGlPipeline.createFromAssets(getApplication<Application>().assets)
+        captureGlExecutor.postAndWait {
+            if (captureEglCore == null || capturePbufferSurface == null) {
+                val eglCore = EglCore(flags = EglCore.FLAG_TRY_GLES3)
+                val pbuffer = eglCore.createOffscreenSurface(1, 1)
+                eglCore.makeCurrent(pbuffer)
+                captureEglCore = eglCore
+                capturePbufferSurface = pbuffer
+            } else {
+                capturePbufferSurface?.let { surface ->
+                    captureEglCore?.makeCurrent(surface)
                 }
+            }
+            if (capturePipeline == null) {
+                capturePipeline = VintageGlPipeline.createFromAssets(getApplication<Application>().assets)
             }
         }
     }

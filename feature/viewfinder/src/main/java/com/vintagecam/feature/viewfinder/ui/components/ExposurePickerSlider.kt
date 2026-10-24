@@ -177,7 +177,7 @@ fun ExposurePickerSlider(
                 value = currentEv.coerceIn(-2.0f, 2.0f),
                 onValueChange = { newValue ->
                     val rounded = roundEv(newValue)
-                    if (abs(rounded - currentEv) >= 0.09f) {
+                    if (abs(rounded - currentEv) > 0.01f) {
                         haptics.tick()
                         onEvChanged(rounded)
                     }

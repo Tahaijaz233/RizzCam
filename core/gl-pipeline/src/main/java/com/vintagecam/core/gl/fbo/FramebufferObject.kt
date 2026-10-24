@@ -41,28 +41,50 @@ class FramebufferObject(
         textureId = textures[0]
 
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureId)
-        val internalFormat = if (useFloat16) GLES30.GL_RGBA16F else GLES30.GL_RGBA8
-        val type = if (useFloat16) GLES30.GL_HALF_FLOAT else GLES30.GL_UNSIGNED_BYTE
+        var isFloat16 = useFloat16
+        if (isFloat16) {
+            GLES30.glTexImage2D(
+                GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA16F,
+                width, height, 0, GLES30.GL_RGBA, GLES30.GL_HALF_FLOAT, null
+            )
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
 
-        GLES30.glTexImage2D(
-            GLES30.GL_TEXTURE_2D, 0, internalFormat,
-            width, height, 0, GLES30.GL_RGBA, type, null
-        )
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fboId)
+            GLES30.glFramebufferTexture2D(
+                GLES30.GL_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0,
+                GLES30.GL_TEXTURE_2D, textureId, 0
+            )
 
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
+            val status = GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)
+            if (status != GLES30.GL_FRAMEBUFFER_COMPLETE) {
+                android.util.Log.w("FramebufferObject", "RGBA16F FBO not complete (0x${Integer.toHexString(status)}), falling back to RGBA8")
+                isFloat16 = false
+            }
+        }
 
-        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fboId)
-        GLES30.glFramebufferTexture2D(
-            GLES30.GL_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0,
-            GLES30.GL_TEXTURE_2D, textureId, 0
-        )
+        if (!isFloat16) {
+            GLES30.glTexImage2D(
+                GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA8,
+                width, height, 0, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, null
+            )
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
 
-        val status = GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)
-        check(status == GLES30.GL_FRAMEBUFFER_COMPLETE) {
-            "FBO allocation failed for ${width}x${height} with status: 0x${Integer.toHexString(status)}"
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fboId)
+            GLES30.glFramebufferTexture2D(
+                GLES30.GL_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0,
+                GLES30.GL_TEXTURE_2D, textureId, 0
+            )
+
+            val status = GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)
+            check(status == GLES30.GL_FRAMEBUFFER_COMPLETE) {
+                "FBO allocation failed for ${width}x${height} with status: 0x${Integer.toHexString(status)}"
+            }
         }
 
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)

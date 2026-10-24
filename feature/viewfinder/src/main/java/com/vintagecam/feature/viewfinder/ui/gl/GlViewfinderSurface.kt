@@ -180,7 +180,7 @@ private class GlViewfinderRenderer(
             activePreset = preset
             activeEv = ev
 
-            if (presetChanged && eglCore != null) {
+            if ((presetChanged || activeLutTextureId == 0) && eglCore != null) {
                 activeLutTextureId = LutTextureHelper.loadLutTexture(context.assets, preset.lut)
             }
         }
@@ -279,6 +279,10 @@ private class GlViewfinderRenderer(
 
         try {
             core.makeCurrent(surface)
+
+            if (activeLutTextureId == 0) {
+                activeLutTextureId = LutTextureHelper.loadLutTexture(context.assets, preset.lut)
+            }
 
             // Adjust aspect ratio crop in UV coordinates
             calculateAspectCropMatrix(transformMatrix, preset.aspectRatio, finalMatrix)

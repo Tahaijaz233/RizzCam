@@ -199,7 +199,13 @@ fun ViewfinderFramingOverlay(
             }
 
             // 2. Focal Length Text Label centered at top of the framing border ("35mm")
-            val labelOffsetY = with(density) { (geometry.top - 24.dp.toPx()).roundToInt() }
+            val labelOffsetY = with(density) {
+                if (geometry.top < 28.dp.toPx()) {
+                    (geometry.top + 10.dp.toPx()).roundToInt()
+                } else {
+                    (geometry.top - 24.dp.toPx()).roundToInt()
+                }
+            }
 
             Box(
                 modifier = Modifier

@@ -118,7 +118,40 @@ class EglCore(
             renderableType = renderableType or EGL_OPENGL_ES3_BIT_KHR
         }
 
-        val attribList = intArrayOf(
+        // Try configs supporting both window and pbuffer first, then fallback
+        val surfaceTypes = intArrayOf(
+            EGL14.EGL_WINDOW_BIT or EGL14.EGL_PBUFFER_BIT,
+            EGL14.EGL_PBUFFER_BIT,
+            EGL14.EGL_WINDOW_BIT
+        )
+
+        for (surfaceType in surfaceTypes) {
+            val attribList = intArrayOf(
+                EGL14.EGL_RED_SIZE, 8,
+                EGL14.EGL_GREEN_SIZE, 8,
+                EGL14.EGL_BLUE_SIZE, 8,
+                EGL14.EGL_ALPHA_SIZE, 8,
+                EGL14.EGL_RENDERABLE_TYPE, renderableType,
+                EGL14.EGL_SURFACE_TYPE, surfaceType,
+                if ((flags and FLAG_RECORDABLE) != 0) EGL_RECORDABLE_ANDROID else EGL14.EGL_NONE,
+                if ((flags and FLAG_RECORDABLE) != 0) 1 else EGL14.EGL_NONE,
+                EGL14.EGL_NONE
+            )
+
+            val configs = arrayOfNulls<EGLConfig>(1)
+            val numConfigs = IntArray(1)
+            if (EGL14.eglChooseConfig(
+                    eglDisplay, attribList, 0,
+                    configs, 0, configs.size,
+                    numConfigs, 0
+                ) && numConfigs[0] > 0 && configs[0] != null
+            ) {
+                return configs[0]
+            }
+        }
+
+        // Fallback without explicit surface type
+        val fallbackAttribList = intArrayOf(
             EGL14.EGL_RED_SIZE, 8,
             EGL14.EGL_GREEN_SIZE, 8,
             EGL14.EGL_BLUE_SIZE, 8,
@@ -128,19 +161,19 @@ class EglCore(
             if ((flags and FLAG_RECORDABLE) != 0) 1 else EGL14.EGL_NONE,
             EGL14.EGL_NONE
         )
-
         val configs = arrayOfNulls<EGLConfig>(1)
         val numConfigs = IntArray(1)
-        if (!EGL14.eglChooseConfig(
-                eglDisplay, attribList, 0,
+        if (EGL14.eglChooseConfig(
+                eglDisplay, fallbackAttribList, 0,
                 configs, 0, configs.size,
                 numConfigs, 0
-            ) || numConfigs[0] <= 0
+            ) && numConfigs[0] > 0 && configs[0] != null
         ) {
-            Log.w(TAG, "unable to find RGB8888 / $version EGLConfig")
-            return null
+            return configs[0]
         }
-        return configs[0]
+
+        Log.w(TAG, "unable to find RGB8888 / $version EGLConfig")
+        return null
     }
 
     /**

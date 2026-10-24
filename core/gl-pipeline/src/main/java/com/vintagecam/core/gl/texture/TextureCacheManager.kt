@@ -56,7 +56,12 @@ class TextureCacheManager {
             activeLutAssetPath = null
         }
 
-        activeLutTextureId = Lut3dTextureLoader.loadFromAssets(assetManager, assetPath, lutSize)
+        activeLutTextureId = try {
+            Lut3dTextureLoader.loadFromAssets(assetManager, assetPath, lutSize)
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to load 3D LUT $assetPath, creating identity LUT fallback: ${t.message}")
+            Lut3dTextureLoader.createIdentityLut(lutSize)
+        }
         activeLutAssetPath = assetPath
         Log.d(TAG, "Loaded 3D LUT: $assetPath (texId=$activeLutTextureId, size=${lutSize}^3)")
         return activeLutTextureId
@@ -125,27 +130,32 @@ class TextureCacheManager {
     }
 
     private fun load2dTextureFromAsset(assetManager: AssetManager, assetPath: String): Int {
-        val textures = IntArray(1)
-        GLES30.glGenTextures(1, textures, 0)
-        val texId = textures[0]
+        return try {
+            val textures = IntArray(1)
+            GLES30.glGenTextures(1, textures, 0)
+            val texId = textures[0]
 
-        assetManager.open(assetPath).use { stream ->
-            val options = BitmapFactory.Options().apply {
-                inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
+            assetManager.open(assetPath).use { stream ->
+                val options = BitmapFactory.Options().apply {
+                    inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
+                }
+                val bitmap = BitmapFactory.decodeStream(stream, null, options) ?: throw RuntimeException("Failed to decode asset: $assetPath")
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, texId)
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
+                GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
+
+                GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
+                bitmap.recycle() // Recycle native bitmap memory immediately after GPU upload
             }
-            val bitmap = BitmapFactory.decodeStream(stream, null, options) ?: throw RuntimeException("Failed to decode asset: $assetPath")
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, texId)
-            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
-            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
-            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
-            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
 
-            GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
-            bitmap.recycle() // Recycle native bitmap memory immediately after GPU upload
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+            texId
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to load 2D texture asset $assetPath: ${t.message}")
+            0
         }
-
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
-        return texId
     }
 
     private fun deleteTexture(texId: Int) {
