@@ -666,6 +666,7 @@ fun FilmRollGalleryScreen(
                                                     deleted = true
                                                 }
                                             }
+                                            Unit
                                         } catch (e: Exception) {
                                             Log.w("ImageGallery", "Failed deleting file from disk: $path", e)
                                         }
@@ -682,8 +683,9 @@ fun FilmRollGalleryScreen(
                                                 needsPermissionIds.add(item.id)
                                             }
                                         } else if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
-                                            if (recoverablePendingId != null) {
-                                                needsPermissionIds.add(recoverablePendingId)
+                                            val recId = recoverablePendingId
+                                            if (recId != null) {
+                                                needsPermissionIds.add(recId)
                                             }
                                         }
                                     }
@@ -713,11 +715,15 @@ fun FilmRollGalleryScreen(
                                 } catch (e: Exception) {
                                     Log.e("ImageGallery", "Failed to launch MediaStore.createDeleteRequest", e)
                                 }
-                            } else if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q && recoverableIntentSender != null) {
-                                pendingSystemDeleteIds = if (recoverablePendingId != null) setOf(recoverablePendingId) else emptySet()
-                                pendingAndroid10Uri = recoverablePendingUri
-                                val request = IntentSenderRequest.Builder(recoverableIntentSender).build()
-                                systemDeleteLauncher.launch(request)
+                            } else if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
+                                val sender = recoverableIntentSender
+                                val recId = recoverablePendingId
+                                if (sender != null) {
+                                    pendingSystemDeleteIds = if (recId != null) setOf(recId) else emptySet()
+                                    pendingAndroid10Uri = recoverablePendingUri
+                                    val request = IntentSenderRequest.Builder(sender).build()
+                                    systemDeleteLauncher.launch(request)
+                                }
                             }
                         }
                     }
