@@ -80,8 +80,8 @@ object FramingGeometryHelper {
         val clampedMm = focalLengthMm.coerceIn(MIN_FOCAL_MM, MAX_FOCAL_MM)
         val focalScale = (BASE_FOCAL_MM.toFloat() / clampedMm.toFloat())
 
-        val boxW = (fitW * focalScale).coerceIn(containerWidth * 0.10f, maxBoxW)
-        val boxH = (fitH * focalScale).coerceIn(containerHeight * 0.10f, maxBoxH)
+        val boxW = (fitW * focalScale).coerceIn(containerWidth * 0.05f, maxBoxW)
+        val boxH = (fitH * focalScale).coerceIn(containerHeight * 0.05f, maxBoxH)
 
         return Pair(boxW / containerWidth, boxH / containerHeight)
     }

@@ -81,19 +81,19 @@ class DazzCameraPresetCatalogTest {
     fun testDifferentCamerasProduceDistinctFilterProfiles() {
         val cpm35 = DazzCameraCatalog.allCameras.first { it.id == "cpm35" }
         val grdr = DazzCameraCatalog.allCameras.first { it.id == "grd_r" }
-        val fx67 = DazzCameraCatalog.allCameras.first { it.id == "fx67" }
+        val s67 = DazzCameraCatalog.allCameras.first { it.id == "s_67" }
         val dclassic = DazzCameraCatalog.allCameras.first { it.id == "d_classic" }
         val instsq = DazzCameraCatalog.allCameras.first { it.id == "inst_sq" }
 
         val presetCpm35 = DazzCameraPresetCatalog.getPresetForCamera(cpm35, sampleBasePresets)
         val presetGrdr = DazzCameraPresetCatalog.getPresetForCamera(grdr, sampleBasePresets)
-        val presetFx67 = DazzCameraPresetCatalog.getPresetForCamera(fx67, sampleBasePresets)
+        val presetS67 = DazzCameraPresetCatalog.getPresetForCamera(s67, sampleBasePresets)
         val presetDclassic = DazzCameraPresetCatalog.getPresetForCamera(dclassic, sampleBasePresets)
         val presetInstsq = DazzCameraPresetCatalog.getPresetForCamera(instsq, sampleBasePresets)
 
         // Verify distinct temperature shifts between warm analog, cool digital, and instant
         assertNotEquals(presetCpm35.lut.temperatureShift, presetGrdr.lut.temperatureShift, 0.001f)
-        assertNotEquals(presetFx67.lut.assetPath, presetGrdr.lut.assetPath)
+        assertNotEquals(presetS67.lut.assetPath, presetGrdr.lut.assetPath)
         assertNotEquals(presetDclassic.lut.temperatureShift, presetInstsq.lut.temperatureShift, 0.001f)
 
         // Verify halation configuration differences (CineStill/analog has bloom, digital doesn't)
