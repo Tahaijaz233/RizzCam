@@ -168,7 +168,7 @@ object RetroTimestampRenderer {
                 // 1. Black stroke outline for contrast
                 val strokePaint = Paint(basePaint).apply {
                     color = Color.argb(200, 0, 0, 0)
-                    style = Paint.Style.STROKE
+                    this.style = Paint.Style.STROKE
                     strokeWidth = fontSize * 0.10f
                     strokeJoin = Paint.Join.ROUND
                 }
@@ -192,7 +192,7 @@ object RetroTimestampRenderer {
                 // 1. Black stroke outline for 100% legibility on stark white backgrounds
                 val strokePaint = Paint(basePaint).apply {
                     color = Color.argb(220, 10, 5, 0)
-                    style = Paint.Style.STROKE
+                    this.style = Paint.Style.STROKE
                     strokeWidth = fontSize * 0.12f
                     strokeJoin = Paint.Join.ROUND
                 }
