@@ -8,6 +8,8 @@ enum class AspectRatioProfile(val widthRatio: Float, val heightRatio: Float) {
     RATIO_3_2(3f, 2f),
     RATIO_1_1(1f, 1f),
     RATIO_6_7(6f, 7f),
+    RATIO_16_9(16f, 9f),
+    RATIO_9_16(9f, 16f),
     HALF_FRAME_DIPTYCH(3f, 4f); // Captures two 3:4 frames stitched onto a 3:2 landscape canvas
 
     val aspectRatio: Float

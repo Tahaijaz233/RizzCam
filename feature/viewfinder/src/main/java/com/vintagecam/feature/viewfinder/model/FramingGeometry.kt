@@ -43,6 +43,8 @@ object FramingGeometryHelper {
             AspectRatioProfile.RATIO_3_2 -> 2f / 3f
             AspectRatioProfile.RATIO_1_1 -> 1f
             AspectRatioProfile.RATIO_6_7 -> 6f / 7f
+            AspectRatioProfile.RATIO_16_9 -> 9f / 16f
+            AspectRatioProfile.RATIO_9_16 -> 9f / 16f
             AspectRatioProfile.HALF_FRAME_DIPTYCH -> 3f / 4f
         }
         return if (isPortrait) baseRatio else (1f / baseRatio)

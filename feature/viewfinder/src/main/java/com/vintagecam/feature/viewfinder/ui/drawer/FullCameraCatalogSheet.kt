@@ -57,7 +57,9 @@ import com.vintagecam.feature.viewfinder.ui.components.CameraModelGraphic
 @Composable
 fun FullCameraCatalogSheet(
     activeCamera: CameraModel,
+    activeAccessory: OpticalAccessory = OpticalAccessory.NONE,
     onCameraSelected: (CameraModel) -> Unit,
+    onAccessorySelected: (OpticalAccessory) -> Unit = {},
     onDismiss: () -> Unit,
     haptics: RetroHapticsEngine,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -192,7 +194,60 @@ fun FullCameraCatalogSheet(
                     )
                 }
 
-                // 6. LEGACY CAMERAS Section with Disclaimer Banner
+                // 6. ACCESSORY Section
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "ACCESSORY",
+                            color = Color.White,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+
+                        val accessories = listOf(
+                            OpticalAccessory.ND_FILTER,
+                            OpticalAccessory.FISHEYE_F,
+                            OpticalAccessory.FISHEYE_W,
+                            OpticalAccessory.PRISM,
+                            OpticalAccessory.FLASH_C,
+                            OpticalAccessory.STAR
+                        )
+                        val accessoryRows = accessories.chunked(3)
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            for (row in accessoryRows) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    for (accessory in row) {
+                                        val isSelected = (accessory == activeAccessory)
+                                        CatalogAccessoryCard(
+                                            accessory = accessory,
+                                            isSelected = isSelected,
+                                            onClick = {
+                                                haptics.tick()
+                                                onAccessorySelected(if (isSelected) OpticalAccessory.NONE else accessory)
+                                                onDismiss()
+                                            },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                    if (row.size < 3) {
+                                        repeat(3 - row.size) {
+                                            Spacer(modifier = Modifier.weight(1f))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 7. LEGACY CAMERAS Section with Disclaimer Banner
                 item {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
@@ -399,6 +454,110 @@ private fun CatalogCameraCard(
                         .border(1.dp, Color(0xFF64748B), RoundedCornerShape(2.dp))
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun CatalogAccessoryCard(
+    accessory: OpticalAccessory,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .height(138.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF141416))
+            .border(
+                width = if (isSelected) 1.5.dp else 0.dp,
+                color = if (isSelected) Color(0xFFFFD54F) else Color.Transparent,
+                shape = RoundedCornerShape(16.dp)
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
+            .padding(8.dp)
+    ) {
+        // Active indicator at top-right
+        if (isSelected) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(18.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFFFD54F)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Active",
+                    tint = Color.Black,
+                    modifier = Modifier.size(12.dp)
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Optical glass lens circle graphic
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF222226))
+                    .border(2.dp, if (isSelected) Color(0xFFFFD54F) else Color(0xFF3F3F46), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(
+                            when (accessory) {
+                                OpticalAccessory.ND_FILTER -> Color(0xFF111111)
+                                OpticalAccessory.FLASH_C -> Color(0xFFB45309)
+                                OpticalAccessory.PRISM -> Color(0xFF4338CA)
+                                OpticalAccessory.STAR -> Color(0xFFCA8A04)
+                                else -> Color(0xFF1E293B)
+                            }
+                        )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Accessory Name Pill
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF0C0C0E))
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = accessory.displayName,
+                    color = if (isSelected) Color(0xFFFFD54F) else Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "OPTICAL GLASS",
+                color = Color(0xFF64748B),
+                fontSize = 8.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.5.sp
+            )
         }
     }
 }

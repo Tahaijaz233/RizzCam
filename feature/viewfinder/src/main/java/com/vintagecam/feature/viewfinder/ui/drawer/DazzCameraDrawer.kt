@@ -359,10 +359,11 @@ private fun AccessoriesBottomBar(
     modifier: Modifier = Modifier
 ) {
     val accessories = listOf(
-        OpticalAccessory.FISHEYE_F,
         OpticalAccessory.ND_FILTER,
-        OpticalAccessory.FLASH_C,
+        OpticalAccessory.FISHEYE_F,
+        OpticalAccessory.FISHEYE_W,
         OpticalAccessory.PRISM,
+        OpticalAccessory.FLASH_C,
         OpticalAccessory.STAR
     )
 
@@ -423,6 +424,8 @@ private fun AccessoriesBottomBar(
                 AspectRatioProfile.RATIO_3_2 -> "3:2"
                 AspectRatioProfile.RATIO_1_1 -> "1:1"
                 AspectRatioProfile.RATIO_6_7 -> "6:7"
+                AspectRatioProfile.RATIO_16_9 -> "16:9"
+                AspectRatioProfile.RATIO_9_16 -> "9:16"
                 AspectRatioProfile.HALF_FRAME_DIPTYCH -> "1/2"
             }
             Text(

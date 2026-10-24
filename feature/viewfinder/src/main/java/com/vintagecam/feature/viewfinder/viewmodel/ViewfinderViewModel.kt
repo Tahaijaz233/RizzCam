@@ -25,6 +25,10 @@ import com.vintagecam.core.camera.export.MediaStoreExporter
 import com.vintagecam.core.camera.model.FlashMode
 import com.vintagecam.core.camera.model.FocusMeteringState
 import com.vintagecam.core.camera.model.LensFacing
+import com.vintagecam.core.camera.video.RecordingState
+import com.vintagecam.core.camera.video.RetroVideoFrameRateMode
+import com.vintagecam.core.camera.video.RetroVideoRecorder
+import com.vintagecam.feature.viewfinder.model.CaptureMode
 import android.opengl.EGLSurface
 import com.vintagecam.core.gl.VintageGlPipeline
 import com.vintagecam.core.gl.egl.EglCore
@@ -84,6 +88,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
 
     private val mediaStoreExporter = MediaStoreExporter(application.applicationContext)
     private val diptychManager = HalfFrameDiptychManager()
+    val retroVideoRecorder = RetroVideoRecorder()
 
     private val captureGlExecutor = GlThreadExecutor("CaptureGlThread")
     private var captureEglCore: EglCore? = null
@@ -104,6 +109,20 @@ class ViewfinderViewModel @JvmOverloads constructor(
     init {
         loadPresets()
         observeCameraState()
+        observeVideoRecorderState()
+    }
+
+    private fun observeVideoRecorderState() {
+        viewModelScope.launch {
+            retroVideoRecorder.recordingState.collect { recState ->
+                _state.update { it.copy(isRecordingVideo = recState == RecordingState.RECORDING) }
+            }
+        }
+        viewModelScope.launch {
+            retroVideoRecorder.jitterState.collect { jitter ->
+                _state.update { it.copy(recordingDurationMs = jitter.elapsedDurationMs) }
+            }
+        }
     }
 
     private fun ensureCapturePipelineInitialized() {
@@ -187,6 +206,13 @@ class ViewfinderViewModel @JvmOverloads constructor(
             diptychManager.cancelPendingFrame()
         }
 
+        val targetMode = if (model.isVideo) CaptureMode.VIDEO else CaptureMode.PHOTO
+        if (model.isVideo) {
+            cameraController.attachVideoCapture(retroVideoRecorder.videoCapture)
+        } else {
+            cameraController.detachVideoCapture()
+        }
+
         _state.update { current ->
             val resetDiptych = if (model.aspectRatio != AspectRatioProfile.HALF_FRAME_DIPTYCH) {
                 DiptychCaptureStep.IDLE
@@ -196,6 +222,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
             current.copy(
                 activeCameraModel = model,
                 activePreset = matchingPreset,
+                captureMode = targetMode,
                 focalLengthMm = model.defaultFocalLengthMm,
                 diptychStep = resetDiptych,
                 firstDiptychUri = if (resetDiptych == DiptychCaptureStep.IDLE) null else current.firstDiptychUri,
@@ -204,6 +231,64 @@ class ViewfinderViewModel @JvmOverloads constructor(
                 isSampleDialogOpen = false
             )
         }
+    }
+
+    /**
+     * Sets active capture mode (PHOTO or VIDEO).
+     */
+    fun setCaptureMode(mode: CaptureMode) {
+        if (_state.value.captureMode == mode) return
+        haptics.cameraSwitch()
+        _state.update { it.copy(captureMode = mode) }
+        if (mode == CaptureMode.VIDEO) {
+            cameraController.attachVideoCapture(retroVideoRecorder.videoCapture)
+        } else {
+            cameraController.detachVideoCapture()
+        }
+    }
+
+    /**
+     * Toggles between PHOTO and VIDEO capture modes.
+     */
+    fun toggleCaptureMode() {
+        val nextMode = if (_state.value.captureMode == CaptureMode.PHOTO) CaptureMode.VIDEO else CaptureMode.PHOTO
+        setCaptureMode(nextMode)
+    }
+
+    /**
+     * Initiates retro video recording to Movies/RizzCam.
+     */
+    fun startVideoRecording() {
+        if (_state.value.isRecordingVideo) return
+        haptics.shutterClick()
+        val context = getApplication<Application>().applicationContext
+        val frameRateMode = when (_state.value.activeCameraModel.id) {
+            "c_8mm", "v_classic" -> RetroVideoFrameRateMode.SUPER_8
+            "vhs", "dcr" -> RetroVideoFrameRateMode.VHS_CAMCORDER
+            else -> RetroVideoFrameRateMode.CINEMA_35MM
+        }
+        retroVideoRecorder.setFrameRateMode(frameRateMode)
+        retroVideoRecorder.startRecording(
+            context = context,
+            audioEnabled = true,
+            onError = { error ->
+                Log.e(TAG, "Video recording error", error)
+                _state.update { it.copy(errorMessage = "Recording error: ${error.message}") }
+            },
+            onSaved = { uri ->
+                _state.update { it.copy(recentThumbnailUri = uri) }
+                _lastCapturedPhotoUri.value = uri
+            }
+        )
+    }
+
+    /**
+     * Stops active video recording.
+     */
+    fun stopVideoRecording() {
+        if (!_state.value.isRecordingVideo) return
+        haptics.shutterClick()
+        retroVideoRecorder.stopRecording()
     }
 
     /**
@@ -319,7 +404,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
     }
 
     /**
-     * Cycles camera aspect ratio between 3:2, 4:3, 1:1, 6:7.
+     * Cycles camera aspect ratio between 3:2, 4:3, 1:1, 6:7, 16:9.
      */
     fun cycleAspectRatio() {
         haptics.tick()
@@ -328,7 +413,9 @@ class ViewfinderViewModel @JvmOverloads constructor(
             AspectRatioProfile.RATIO_3_2 -> AspectRatioProfile.RATIO_4_3
             AspectRatioProfile.RATIO_4_3 -> AspectRatioProfile.RATIO_1_1
             AspectRatioProfile.RATIO_1_1 -> AspectRatioProfile.RATIO_6_7
-            AspectRatioProfile.RATIO_6_7 -> AspectRatioProfile.RATIO_3_2
+            AspectRatioProfile.RATIO_6_7 -> AspectRatioProfile.RATIO_16_9
+            AspectRatioProfile.RATIO_16_9 -> AspectRatioProfile.RATIO_3_2
+            AspectRatioProfile.RATIO_9_16 -> AspectRatioProfile.RATIO_3_2
             AspectRatioProfile.HALF_FRAME_DIPTYCH -> AspectRatioProfile.RATIO_4_3
         }
         _state.update { current ->
@@ -482,6 +569,15 @@ class ViewfinderViewModel @JvmOverloads constructor(
      * before firing capture.
      */
     fun onShutterPressed(onPhotoCaptured: ((Uri?) -> Unit)? = null) {
+        if (_state.value.captureMode == CaptureMode.VIDEO) {
+            if (_state.value.isRecordingVideo) {
+                stopVideoRecording()
+            } else {
+                startVideoRecording()
+            }
+            return
+        }
+
         if (_state.value.isCapturing) return
 
         val timerSec = _state.value.selfTimerSeconds

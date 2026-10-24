@@ -79,7 +79,9 @@ class FramingGeometryHelperTest {
             AspectRatioProfile.RATIO_3_2,
             AspectRatioProfile.RATIO_4_3,
             AspectRatioProfile.RATIO_1_1,
-            AspectRatioProfile.RATIO_6_7
+            AspectRatioProfile.RATIO_6_7,
+            AspectRatioProfile.RATIO_16_9,
+            AspectRatioProfile.RATIO_9_16
         )) {
             val viewport = FramingGeometryHelper.calculateViewportGeometry(
                 containerWidth = containerW,

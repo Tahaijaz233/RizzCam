@@ -122,4 +122,51 @@ class DazzCameraPresetCatalogTest {
             assertEquals("Rounding $input EV", expected, rounded, 1e-5f)
         }
     }
+
+    @Test
+    fun testOriginalAndOriginalVStayCleanWithZeroGrainAndZeroVignette() {
+        val originalCam = DazzCameraCatalog.allCameras.first { it.id == "original" }
+        val originalVCam = DazzCameraCatalog.allCameras.first { it.id == "original_v" }
+
+        val originalPreset = DazzCameraPresetCatalog.getPresetForCamera(originalCam, sampleBasePresets)
+        val originalVPreset = DazzCameraPresetCatalog.getPresetForCamera(originalVCam, sampleBasePresets)
+
+        assertEquals("Original grain must be 0", 0.0f, originalPreset.grain.intensity, 1e-5f)
+        assertEquals("Original vignette must be 0", 0.0f, originalPreset.compositing.vignetteIntensity, 1e-5f)
+
+        assertEquals("Original V grain must be 0", 0.0f, originalVPreset.grain.intensity, 1e-5f)
+        assertEquals("Original V vignette must be 0", 0.0f, originalVPreset.compositing.vignetteIntensity, 1e-5f)
+    }
+
+    @Test
+    fun testAll46CamerasPresentAndUnique() {
+        val allCameras = DazzCameraCatalog.allCameras
+        assertEquals("Catalog must contain exactly 46 cameras", 46, allCameras.size)
+
+        val uniqueIds = allCameras.map { it.id }.toSet()
+        assertEquals("All 46 camera IDs must be strictly unique", 46, uniqueIds.size)
+    }
+
+    @Test
+    fun testOpticalAccessoriesParity() {
+        val expectedIds = setOf("none", "fisheye_f", "fisheye_w", "nd_filter", "flash_c", "prism", "star")
+        val actualIds = OpticalAccessory.entries.map { it.id }.toSet()
+        assertEquals("All 6 Dazz optical accessories plus clear glass must be present", expectedIds, actualIds)
+    }
+
+    @Test
+    fun testIrCameraInfraredPreset() {
+        val irCam = DazzCameraCatalog.allCameras.first { it.id == "ir" }
+        val irPreset = DazzCameraPresetCatalog.getPresetForCamera(irCam, sampleBasePresets)
+        assertTrue("IR preset must use aerochrome false color LUT", irPreset.lut.assetPath.contains("aerochrome"))
+        assertTrue("IR preset must have halation enabled for infrared bloom", irPreset.halation.enabled)
+    }
+
+    @Test
+    fun testVhsCameraScanlinesAndTimestamp() {
+        val vhsCam = DazzCameraCatalog.allCameras.first { it.id == "vhs" }
+        val vhsPreset = DazzCameraPresetCatalog.getPresetForCamera(vhsCam, sampleBasePresets)
+        assertTrue("VHS preset must support timestamp overlay", vhsPreset.compositing.enableDateStamp)
+        assertTrue("VHS preset must have heavy analog noise", vhsPreset.grain.intensity >= 0.20f)
+    }
 }

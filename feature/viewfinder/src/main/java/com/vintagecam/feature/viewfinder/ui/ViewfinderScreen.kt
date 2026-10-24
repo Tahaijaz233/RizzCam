@@ -75,6 +75,7 @@ import com.vintagecam.domain.presets.model.AspectRatioProfile
 import com.vintagecam.feature.viewfinder.haptics.RetroHapticsEngine
 import com.vintagecam.feature.viewfinder.instant.InstantPhotoOverlay
 import com.vintagecam.feature.viewfinder.model.CameraModel
+import com.vintagecam.feature.viewfinder.model.CaptureMode
 import com.vintagecam.feature.viewfinder.theme.RetroTheme
 import com.vintagecam.feature.viewfinder.ui.components.CameraModelGraphic
 import com.vintagecam.feature.viewfinder.ui.components.ExposurePickerSlider
@@ -154,10 +155,13 @@ fun ViewfinderScreen(
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 // -------------------------------------------------------------
-                // 1. Top Bar: Minimal with Settings (...) Actuator
+                // 1. Top Bar: Minimal with Settings (...) Actuator & Video Status
                 // -------------------------------------------------------------
                 DazzTopBar(
-                    onSettingsClick = { viewModel.openSettings() }
+                    onSettingsClick = { viewModel.openSettings() },
+                    isVideoMode = state.captureMode == CaptureMode.VIDEO,
+                    isRecording = state.isRecordingVideo,
+                    recordingDurationMs = state.recordingDurationMs
                 )
 
                 // -------------------------------------------------------------
@@ -287,6 +291,69 @@ fun ViewfinderScreen(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
+                // Video Recording Timer Pill (Active)
+                if (state.isRecordingVideo) {
+                    val totalSec = state.recordingDurationMs / 1000
+                    val min = totalSec / 60
+                    val sec = totalSec % 60
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xCCB91C1C),
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = String.format(Locale.US, "REC %02d:%02d", min, sec),
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                }
+
+                // Mode Switcher: PHOTO | VIDEO
+                Row(
+                    modifier = Modifier.padding(bottom = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "PHOTO",
+                        color = if (state.captureMode == CaptureMode.PHOTO) Color(0xFFFFD54F) else Color(0xFF707078),
+                        fontSize = 12.sp,
+                        fontWeight = if (state.captureMode == CaptureMode.PHOTO) FontWeight.Bold else FontWeight.Medium,
+                        letterSpacing = 1.sp,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { viewModel.setCaptureMode(CaptureMode.PHOTO) }
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+
+                    Text(
+                        text = "VIDEO",
+                        color = if (state.captureMode == CaptureMode.VIDEO) Color(0xFFFFD54F) else Color(0xFF707078),
+                        fontSize = 12.sp,
+                        fontWeight = if (state.captureMode == CaptureMode.VIDEO) FontWeight.Bold else FontWeight.Medium,
+                        letterSpacing = 1.sp,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { viewModel.setCaptureMode(CaptureMode.VIDEO) }
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+
                 // -------------------------------------------------------------
                 // 4. Bottom Deck: Gallery | Concentric Shutter | Active Camera
                 // -------------------------------------------------------------
@@ -308,6 +375,8 @@ fun ViewfinderScreen(
                     DazzShutterButton(
                         onClick = { viewModel.onShutterPressed() },
                         haptics = viewModel.haptics,
+                        isVideoMode = state.captureMode == CaptureMode.VIDEO,
+                        isRecording = state.isRecordingVideo,
                         isEnabled = !state.isCapturing
                     )
 
@@ -348,7 +417,9 @@ fun ViewfinderScreen(
             if (state.isFullCatalogOpen) {
                 FullCameraCatalogSheet(
                     activeCamera = state.activeCameraModel,
+                    activeAccessory = state.activeAccessory,
                     onCameraSelected = { camera -> viewModel.selectCameraModel(camera) },
+                    onAccessorySelected = { accessory -> viewModel.selectAccessory(accessory) },
                     onDismiss = { viewModel.closeFullCatalog() },
                     haptics = viewModel.haptics
                 )
@@ -396,20 +467,60 @@ fun ViewfinderScreen(
 }
 
 /**
- * Clean top bar with three-dots menu actuator.
+ * Clean top bar with three-dots menu actuator and video recording indicator.
  */
 @Composable
 private fun DazzTopBar(
     onSettingsClick: () -> Unit,
+    isVideoMode: Boolean = false,
+    isRecording: Boolean = false,
+    recordingDurationMs: Long = 0L,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.End,
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (isVideoMode) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (isRecording) Color(0xCCDC2626) else Color(0x66222226)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(if (isRecording) Color.White else Color(0xFF94A3B8))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    val statusText = if (isRecording) {
+                        val totalSec = recordingDurationMs / 1000
+                        val min = totalSec / 60
+                        val sec = totalSec % 60
+                        String.format(Locale.US, "REC %02d:%02d", min, sec)
+                    } else {
+                        "VIDEO"
+                    }
+                    Text(
+                        text = statusText,
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        } else {
+            Spacer(modifier = Modifier.width(1.dp))
+        }
+
         IconButton(
             onClick = onSettingsClick,
             modifier = Modifier.size(36.dp)
@@ -642,13 +753,16 @@ private fun SecondaryActionBar(
 }
 
 /**
- * Concentric white shutter button matching Dazz Cam skeuomorphic actuation button.
+ * Concentric white shutter button matching Dazz Cam skeuomorphic actuation button,
+ * dynamically transforming into a red record ring / stop square in video mode.
  */
 @Composable
 fun DazzShutterButton(
     onClick: () -> Unit,
     haptics: RetroHapticsEngine,
     modifier: Modifier = Modifier,
+    isVideoMode: Boolean = false,
+    isRecording: Boolean = false,
     isEnabled: Boolean = true,
     size: Dp = 76.dp
 ) {
@@ -695,21 +809,44 @@ fun DazzShutterButton(
             val outerRadius = (this.size.width / 2f) - 2.dp.toPx()
             val strokeWidth = 3.5.dp.toPx()
 
-            // Outer white concentric ring
+            val ringColor = if (isRecording) Color(0xFFFF3B30) else Color.White
+
+            // Outer ring
             drawCircle(
-                color = Color.White,
+                color = ringColor,
                 radius = outerRadius,
                 center = center,
                 style = Stroke(width = strokeWidth)
             )
 
-            // Inner solid white circle with tactile scale
-            val innerRadius = (outerRadius - 6.dp.toPx()) * scale.value
-            drawCircle(
-                color = Color.White,
-                radius = innerRadius,
-                center = center
-            )
+            if (isVideoMode) {
+                if (isRecording) {
+                    // Stop Square in center
+                    val squareSize = (outerRadius - 8.dp.toPx()) * scale.value
+                    drawRoundRect(
+                        color = Color(0xFFFF3B30),
+                        topLeft = Offset(center.x - squareSize / 2f, center.y - squareSize / 2f),
+                        size = androidx.compose.ui.geometry.Size(squareSize, squareSize),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx())
+                    )
+                } else {
+                    // Red Record Circle in center
+                    val innerRadius = (outerRadius - 6.dp.toPx()) * scale.value
+                    drawCircle(
+                        color = Color(0xFFFF3B30),
+                        radius = innerRadius,
+                        center = center
+                    )
+                }
+            } else {
+                // Inner solid white circle with tactile scale
+                val innerRadius = (outerRadius - 6.dp.toPx()) * scale.value
+                drawCircle(
+                    color = Color.White,
+                    radius = innerRadius,
+                    center = center
+                )
+            }
         }
     }
 }

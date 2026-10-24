@@ -64,8 +64,10 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -206,6 +208,7 @@ fun FilmRollGalleryScreen(
     var isSelectionMode by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var previewItem by remember { mutableStateOf<GalleryItem?>(null) }
+    var editingItem by remember { mutableStateOf<GalleryItem?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var deletePendingIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var pendingSystemDeleteIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
@@ -268,6 +271,7 @@ fun FilmRollGalleryScreen(
     // System back button handling
     BackHandler {
         when {
+            editingItem != null -> editingItem = null
             previewItem != null -> previewItem = null
             isSelectionMode -> {
                 isSelectionMode = false
@@ -546,6 +550,7 @@ fun FilmRollGalleryScreen(
         FullscreenPhotoViewer(
             item = item,
             onDismiss = { previewItem = null },
+            onEdit = { editingItem = item },
             onShare = {
                 shareMediaItems(context, listOf(item))
             },
@@ -553,6 +558,25 @@ fun FilmRollGalleryScreen(
                 deletePendingIds = setOf(item.id)
                 showDeleteDialog = true
             }
+        )
+    }
+
+    // Comprehensive Photo Editor Modal
+    editingItem?.let { item ->
+        PhotoEditorScreen(
+            item = item,
+            onDismiss = { editingItem = null },
+            onSaved = { savedUri ->
+                editingItem = null
+                previewItem = null
+                coroutineScope.launch {
+                    val loaded = withContext(Dispatchers.IO) {
+                        queryAllMedia(context)
+                    }
+                    items = loaded
+                }
+            },
+            haptics = haptics
         )
     }
 
@@ -985,6 +1009,7 @@ private fun MemorySafeThumbnail(
 private fun FullscreenPhotoViewer(
     item: GalleryItem,
     onDismiss: () -> Unit,
+    onEdit: (() -> Unit)? = null,
     onShare: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
@@ -1041,6 +1066,15 @@ private fun FullscreenPhotoViewer(
                     }
                 },
                 actions = {
+                    if (item.mediaType == MediaType.IMAGE && onEdit != null) {
+                        IconButton(onClick = onEdit) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = "Edit Photo",
+                                tint = Color(0xFFFFD54F)
+                            )
+                        }
+                    }
                     IconButton(onClick = onShare) {
                         Icon(
                             imageVector = Icons.Default.Share,
@@ -1106,6 +1140,39 @@ private fun FullscreenPhotoViewer(
                     color = Color(0xFF888888),
                     fontSize = 14.sp
                 )
+            }
+
+            // Center Video Play Overlay
+            if (item.mediaType == MediaType.VIDEO) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.65f),
+                    border = BorderStroke(2.dp, Color.White),
+                    modifier = Modifier
+                        .size(68.dp)
+                        .clickable {
+                            item.uri?.let { videoUri ->
+                                val playIntent = Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(videoUri, "video/*")
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                try {
+                                    context.startActivity(Intent.createChooser(playIntent, "Play Video"))
+                                } catch (e: Exception) {
+                                    Log.e("ImageGallery", "Cannot launch video player", e)
+                                }
+                            }
+                        }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Play Video",
+                            tint = Color.White,
+                            modifier = Modifier.size(38.dp)
+                        )
+                    }
+                }
             }
 
             // Zoom reset pill

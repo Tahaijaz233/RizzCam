@@ -58,6 +58,9 @@ fun RetroLcdHeader(
     currentFrame: Int,
     totalFrames: Int = 36,
     isDiptychSecondShot: Boolean = false,
+    isVideoMode: Boolean = false,
+    isRecording: Boolean = false,
+    recordingDurationMs: Long = 0L,
     modifier: Modifier = Modifier
 ) {
     val colors = RetroTheme.colors
@@ -184,8 +187,17 @@ fun RetroLcdHeader(
 
                     Spacer(modifier = Modifier.height(2.dp))
 
-                    // Film frame counter or diptych step
-                    val frameText = if (preset.aspectRatio == AspectRatioProfile.HALF_FRAME_DIPTYCH) {
+                    // Film frame counter, diptych step, or video recording duration
+                    val frameText = if (isVideoMode) {
+                        if (isRecording) {
+                            val totalSec = recordingDurationMs / 1000
+                            val min = totalSec / 60
+                            val sec = totalSec % 60
+                            String.format(Locale.US, "REC %02d:%02d", min, sec)
+                        } else {
+                            "STANDBY"
+                        }
+                    } else if (preset.aspectRatio == AspectRatioProfile.HALF_FRAME_DIPTYCH) {
                         if (isDiptychSecondShot) "SHOT 2/2" else "SHOT 1/2"
                     } else {
                         String.format(Locale.US, "EXP %02d/%02d", currentFrame, totalFrames)

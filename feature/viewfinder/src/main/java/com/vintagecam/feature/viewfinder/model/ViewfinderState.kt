@@ -10,6 +10,14 @@ import com.vintagecam.domain.presets.model.CameraPreset
 import com.vintagecam.feature.viewfinder.ui.components.LensFocalLength
 
 /**
+ * Active camera viewfinder capture mode.
+ */
+enum class CaptureMode {
+    PHOTO,
+    VIDEO
+}
+
+/**
  * State machine stages for half-frame diptych capture.
  */
 enum class DiptychCaptureStep {
@@ -23,6 +31,9 @@ enum class DiptychCaptureStep {
  */
 data class ViewfinderState(
     val isInitialized: Boolean = false,
+    val captureMode: CaptureMode = CaptureMode.PHOTO,
+    val isRecordingVideo: Boolean = false,
+    val recordingDurationMs: Long = 0L,
     val presets: List<CameraPreset> = emptyList(),
     val activePreset: CameraPreset? = null,
     val activeCameraModel: CameraModel = DazzCameraCatalog.findById("cpm35"),

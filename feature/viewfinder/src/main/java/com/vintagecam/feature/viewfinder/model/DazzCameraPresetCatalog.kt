@@ -40,14 +40,14 @@ object DazzCameraPresetCatalog {
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/ccd_powershot.raw3d",
-                    defaultIntensity = 0.70f,
+                    defaultIntensity = 0.50f,
                     temperatureShift = 0.0f,
                     tintShift = 0.0f
                 ),
-                aberration = AberrationConfig(strength = 0.001f, cubicDistortion = 0.0f, falloffPower = 2.0f),
+                aberration = AberrationConfig(strength = 0.0f, cubicDistortion = 0.0f, falloffPower = 2.0f),
                 halation = HalationConfig(enabled = false),
-                grain = GrainConfig(intensity = 0.02f, particleSize = 1.0f, colorNoiseRatio = 0.10f),
-                compositing = CompositingConfig(vignetteIntensity = 0.15f, vignetteSmoothness = 0.90f, enableDateStamp = false)
+                grain = GrainConfig(intensity = 0.0f, particleSize = 1.0f, colorNoiseRatio = 0.0f),
+                compositing = CompositingConfig(vignetteIntensity = 0.0f, vignetteSmoothness = 0.90f, enableDateStamp = false)
             )
 
             "grd_r" -> CameraPreset(
@@ -107,19 +107,19 @@ object DazzCameraPresetCatalog {
             "fxn_r" -> CameraPreset(
                 id = "fxn_r",
                 displayName = "FXN R",
-                subtitle = "Hybrid Rangefinder • Classic Chrome",
+                subtitle = "Fuji Film Simulation • Soft Tones & Warm Colors",
                 category = PresetCategory.DIGITAL,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
-                    assetPath = "presets/luts/portra_400.raw3d",
-                    defaultIntensity = 0.90f,
-                    temperatureShift = -0.04f,
-                    tintShift = -0.04f
+                    assetPath = "presets/luts/fuji_superia_400.raw3d",
+                    defaultIntensity = 1.0f,
+                    temperatureShift = -0.01f,
+                    tintShift = 0.02f
                 ),
-                aberration = AberrationConfig(strength = 0.002f, cubicDistortion = -0.003f, falloffPower = 2.5f),
+                aberration = AberrationConfig(strength = 0.002f, cubicDistortion = -0.002f, falloffPower = 2.4f),
                 halation = HalationConfig(enabled = true, threshold = 0.82f, knee = 0.12f, blurRadius = 1.8f, tintRgb = listOf(1.0f, 0.30f, 0.10f), strength = 0.25f),
-                grain = GrainConfig(intensity = 0.08f, particleSize = 1.2f, colorNoiseRatio = 0.15f),
-                compositing = CompositingConfig(vignetteIntensity = 0.45f, vignetteSmoothness = 0.75f, enableDateStamp = false)
+                grain = GrainConfig(intensity = 0.10f, particleSize = 1.2f, colorNoiseRatio = 0.20f),
+                compositing = CompositingConfig(vignetteIntensity = 0.25f, vignetteSmoothness = 0.75f, enableDateStamp = false)
             )
 
             // =================================================================
@@ -151,14 +151,14 @@ object DazzCameraPresetCatalog {
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/portra_400.raw3d",
-                    defaultIntensity = 0.80f,
-                    temperatureShift = 0.02f,
+                    defaultIntensity = 0.50f,
+                    temperatureShift = 0.0f,
                     tintShift = 0.0f
                 ),
-                aberration = AberrationConfig(strength = 0.002f, cubicDistortion = 0.0f, falloffPower = 2.0f),
+                aberration = AberrationConfig(strength = 0.0f, cubicDistortion = 0.0f, falloffPower = 2.0f),
                 halation = HalationConfig(enabled = false),
-                grain = GrainConfig(intensity = 0.04f, particleSize = 1.0f, colorNoiseRatio = 0.10f),
-                compositing = CompositingConfig(vignetteIntensity = 0.25f, vignetteSmoothness = 0.85f, enableDateStamp = false)
+                grain = GrainConfig(intensity = 0.0f, particleSize = 1.0f, colorNoiseRatio = 0.0f),
+                compositing = CompositingConfig(vignetteIntensity = 0.0f, vignetteSmoothness = 0.90f, enableDateStamp = false)
             )
 
             "dam" -> CameraPreset(
@@ -326,17 +326,22 @@ object DazzCameraPresetCatalog {
             // =================================================================
             // VINTAGE 135
             // =================================================================
-            "d_classic" -> baseMap["portra_400_35mm"]?.copy(aspectRatio = camera.aspectRatio) ?: CameraPreset(
+            "d_classic" -> CameraPreset(
                 id = "d_classic",
                 displayName = "D Classic",
-                subtitle = "Warm Skin Tones • Fine 35mm Grain",
+                subtitle = "Everyday Compact Film • Clean & Natural Warmth",
                 category = PresetCategory.VINTAGE_135,
                 aspectRatio = camera.aspectRatio,
-                lut = LutConfig("presets/luts/portra_400.raw3d", defaultIntensity = 0.95f, temperatureShift = 0.08f, tintShift = -0.03f),
-                aberration = AberrationConfig(0.0035f, -0.008f, 2.4f),
-                halation = HalationConfig(true, 0.82f, 0.15f, 1.8f, listOf(1.0f, 0.32f, 0.12f), 0.30f),
-                grain = GrainConfig(0.09f, 1.2f, 0.20f),
-                compositing = CompositingConfig(0.55f, 0.75f, listOf("presets/leaks/leak_warm_01.png"), null, true)
+                lut = LutConfig(
+                    assetPath = "presets/luts/portra_400.raw3d",
+                    defaultIntensity = 1.0f,
+                    temperatureShift = 0.03f,
+                    tintShift = 0.01f
+                ),
+                aberration = AberrationConfig(strength = 0.003f, cubicDistortion = 0.0f, falloffPower = 2.4f),
+                halation = HalationConfig(enabled = false),
+                grain = GrainConfig(intensity = 0.08f, particleSize = 1.1f, colorNoiseRatio = 0.15f),
+                compositing = CompositingConfig(vignetteIntensity = 0.20f, vignetteSmoothness = 0.85f, enableDateStamp = true)
             )
 
             "gr_f" -> CameraPreset(
@@ -357,17 +362,22 @@ object DazzCameraPresetCatalog {
                 compositing = CompositingConfig(vignetteIntensity = 0.50f, vignetteSmoothness = 0.80f, enableDateStamp = false)
             )
 
-            "ct2f" -> baseMap["contax_t2_party"]?.copy(aspectRatio = camera.aspectRatio) ?: CameraPreset(
+            "ct2f" -> CameraPreset(
                 id = "ct2f",
                 displayName = "CT2F",
-                subtitle = "Carl Zeiss 38mm • High-Key Flash",
+                subtitle = "Carl Zeiss Sonnar 38mm • Crisp & Warm Skin Tones",
                 category = PresetCategory.VINTAGE_135,
                 aspectRatio = camera.aspectRatio,
-                lut = LutConfig("presets/luts/contax_t2.raw3d", defaultIntensity = 1.0f, temperatureShift = 0.06f, tintShift = 0.04f),
-                aberration = AberrationConfig(0.004f, -0.006f, 2.5f),
-                halation = HalationConfig(true, 0.78f, 0.14f, 2.0f, listOf(1.0f, 0.38f, 0.15f), 0.40f),
-                grain = GrainConfig(0.10f, 1.3f, 0.15f),
-                compositing = CompositingConfig(0.50f, 0.70f, listOf("presets/leaks/leak_warm_01.png"), null, true)
+                lut = LutConfig(
+                    assetPath = "presets/luts/contax_t2.raw3d",
+                    defaultIntensity = 1.0f,
+                    temperatureShift = 0.02f,
+                    tintShift = 0.02f
+                ),
+                aberration = AberrationConfig(strength = 0.003f, cubicDistortion = -0.004f, falloffPower = 2.5f),
+                halation = HalationConfig(enabled = true, threshold = 0.78f, knee = 0.14f, blurRadius = 2.0f, tintRgb = listOf(1.0f, 0.38f, 0.15f), strength = 0.40f),
+                grain = GrainConfig(intensity = 0.08f, particleSize = 1.2f, colorNoiseRatio = 0.15f),
+                compositing = CompositingConfig(vignetteIntensity = 0.20f, vignetteSmoothness = 0.80f, lightLeakPool = listOf("presets/leaks/leak_warm_01.png"), enableDateStamp = true)
             )
 
             "d3d" -> CameraPreset(
@@ -424,17 +434,22 @@ object DazzCameraPresetCatalog {
                 compositing = CompositingConfig(vignetteIntensity = 0.95f, vignetteSmoothness = 0.55f, lightLeakPool = listOf("presets/leaks/leak_warm_01.png"), enableDateStamp = true)
             )
 
-            "ir" -> baseMap["aerochrome_ir"]?.copy(aspectRatio = camera.aspectRatio) ?: CameraPreset(
+            "ir" -> CameraPreset(
                 id = "ir",
                 displayName = "IR",
-                subtitle = "Infrared False Color • Pink Foliage",
+                subtitle = "Infrared False Color • Pale Pink Foliage",
                 category = PresetCategory.VINTAGE_135,
                 aspectRatio = camera.aspectRatio,
-                lut = LutConfig("presets/luts/aerochrome.raw3d", defaultIntensity = 1.0f, temperatureShift = 0.0f, tintShift = 0.0f),
-                aberration = AberrationConfig(0.012f, -0.018f, 2.1f),
-                halation = HalationConfig(true, 0.65f, 0.20f, 4.0f, listOf(1.0f, 0.15f, 0.45f), 0.75f),
-                grain = GrainConfig(0.20f, 1.7f, 0.25f),
-                compositing = CompositingConfig(0.85f, 0.70f, emptyList(), null, false)
+                lut = LutConfig(
+                    assetPath = "presets/luts/aerochrome.raw3d",
+                    defaultIntensity = 1.0f,
+                    temperatureShift = 0.05f,
+                    tintShift = 0.04f
+                ),
+                aberration = AberrationConfig(strength = 0.012f, cubicDistortion = -0.018f, falloffPower = 2.1f),
+                halation = HalationConfig(enabled = true, threshold = 0.65f, knee = 0.20f, blurRadius = 4.0f, tintRgb = listOf(1.0f, 0.15f, 0.45f), strength = 0.75f),
+                grain = GrainConfig(intensity = 0.16f, particleSize = 1.6f, colorNoiseRatio = 0.25f),
+                compositing = CompositingConfig(vignetteIntensity = 0.40f, vignetteSmoothness = 0.70f, enableDateStamp = false)
             )
 
             "classic_u" -> CameraPreset(
@@ -545,17 +560,22 @@ object DazzCameraPresetCatalog {
                 compositing = CompositingConfig(vignetteIntensity = 0.55f, vignetteSmoothness = 0.75f, enableDateStamp = true)
             )
 
-            "d_half" -> baseMap["fuji_superia_half"]?.copy(aspectRatio = camera.aspectRatio) ?: CameraPreset(
+            "d_half" -> CameraPreset(
                 id = "d_half",
                 displayName = "D Half",
-                subtitle = "Emerald Shadows • Diptych Half-Frame",
+                subtitle = "Olympus PEN Half Frame • Warm Muted Diptych",
                 category = PresetCategory.VINTAGE_135,
-                aspectRatio = AspectRatioProfile.HALF_FRAME_DIPTYCH,
-                lut = LutConfig("presets/luts/fuji_superia_400.raw3d", defaultIntensity = 1.0f, temperatureShift = -0.05f, tintShift = -0.08f),
-                aberration = AberrationConfig(0.008f, -0.022f, 2.0f),
-                halation = HalationConfig(true, 0.76f, 0.12f, 2.5f, listOf(1.0f, 0.22f, 0.06f), 0.55f),
-                grain = GrainConfig(0.16f, 1.65f, 0.35f),
-                compositing = CompositingConfig(0.80f, 0.65f, listOf("presets/leaks/leak_side_burn.png"), "presets/borders/half_frame_divider.png", true)
+                aspectRatio = camera.aspectRatio,
+                lut = LutConfig(
+                    assetPath = "presets/luts/fuji_superia_400.raw3d",
+                    defaultIntensity = 1.0f,
+                    temperatureShift = 0.03f,
+                    tintShift = 0.01f
+                ),
+                aberration = AberrationConfig(strength = 0.006f, cubicDistortion = -0.012f, falloffPower = 2.1f),
+                halation = HalationConfig(enabled = true, threshold = 0.78f, knee = 0.14f, blurRadius = 2.2f, tintRgb = listOf(1.0f, 0.30f, 0.10f), strength = 0.35f),
+                grain = GrainConfig(intensity = 0.12f, particleSize = 1.4f, colorNoiseRatio = 0.25f),
+                compositing = CompositingConfig(vignetteIntensity = 0.40f, vignetteSmoothness = 0.75f, borderMaskAsset = "presets/borders/half_frame_divider.png", enableDateStamp = true)
             )
 
             "d_slide" -> CameraPreset(
@@ -610,17 +630,22 @@ object DazzCameraPresetCatalog {
                 compositing = CompositingConfig(vignetteIntensity = 0.50f, vignetteSmoothness = 0.75f, borderMaskAsset = "presets/borders/square_120.png", enableDateStamp = false)
             )
 
-            "hoga" -> baseMap["holga_120n"]?.copy(aspectRatio = camera.aspectRatio) ?: CameraPreset(
+            "hoga" -> CameraPreset(
                 id = "hoga",
                 displayName = "HOGA",
-                subtitle = "Toy Plastic Lens • Extreme Vignette",
+                subtitle = "Cult 120 Toy Camera • Extreme Vignette & Blur",
                 category = PresetCategory.VINTAGE_120,
                 aspectRatio = AspectRatioProfile.RATIO_1_1,
-                lut = LutConfig("presets/luts/holga_120.raw3d", defaultIntensity = 1.0f, temperatureShift = 0.02f, tintShift = -0.05f),
-                aberration = AberrationConfig(0.022f, -0.060f, 1.6f),
-                halation = HalationConfig(false, 0.85f, 0.15f, 1.5f, listOf(1.0f, 0.4f, 0.1f), 0.2f),
-                grain = GrainConfig(0.24f, 2.2f, 0.40f),
-                compositing = CompositingConfig(1.45f, 0.35f, listOf("presets/leaks/leak_side_burn.png"), "presets/borders/square_120.png", false)
+                lut = LutConfig(
+                    assetPath = "presets/luts/holga_120.raw3d",
+                    defaultIntensity = 1.0f,
+                    temperatureShift = 0.03f,
+                    tintShift = 0.02f
+                ),
+                aberration = AberrationConfig(strength = 0.022f, cubicDistortion = -0.060f, falloffPower = 1.6f),
+                halation = HalationConfig(enabled = false),
+                grain = GrainConfig(intensity = 0.16f, particleSize = 2.0f, colorNoiseRatio = 0.40f),
+                compositing = CompositingConfig(vignetteIntensity = 1.45f, vignetteSmoothness = 0.35f, lightLeakPool = listOf("presets/leaks/leak_side_burn.png"), borderMaskAsset = "presets/borders/square_120.png", enableDateStamp = false)
             )
 
             "s_67" -> CameraPreset(
@@ -716,17 +741,22 @@ object DazzCameraPresetCatalog {
                 compositing = CompositingConfig(vignetteIntensity = 0.70f, vignetteSmoothness = 0.65f, borderMaskAsset = "presets/borders/square_120.png", enableDateStamp = false)
             )
 
-            "paf_r" -> baseMap["polaroid_sx70"]?.copy(aspectRatio = camera.aspectRatio) ?: CameraPreset(
+            "paf_r" -> CameraPreset(
                 id = "paf_r",
                 displayName = "PAF R",
-                subtitle = "Classic Instant • White Frame",
+                subtitle = "Instant Polaroid Film • Warm Tones & White Frame",
                 category = PresetCategory.INSTANT,
                 aspectRatio = AspectRatioProfile.RATIO_1_1,
-                lut = LutConfig("presets/luts/polaroid_sx70.raw3d", defaultIntensity = 1.0f, temperatureShift = -0.04f, tintShift = 0.06f),
-                aberration = AberrationConfig(0.007f, -0.015f, 2.0f),
-                halation = HalationConfig(true, 0.80f, 0.12f, 2.2f, listOf(1.0f, 0.35f, 0.15f), 0.35f),
-                grain = GrainConfig(0.18f, 1.8f, 0.45f),
-                compositing = CompositingConfig(0.70f, 0.65f, emptyList(), "presets/borders/polaroid_frame.png", false)
+                lut = LutConfig(
+                    assetPath = "presets/luts/polaroid_sx70.raw3d",
+                    defaultIntensity = 1.0f,
+                    temperatureShift = 0.02f,
+                    tintShift = 0.02f
+                ),
+                aberration = AberrationConfig(strength = 0.007f, cubicDistortion = -0.015f, falloffPower = 2.0f),
+                halation = HalationConfig(enabled = true, threshold = 0.80f, knee = 0.12f, blurRadius = 2.2f, tintRgb = listOf(1.0f, 0.35f, 0.15f), strength = 0.35f),
+                grain = GrainConfig(intensity = 0.10f, particleSize = 1.6f, colorNoiseRatio = 0.35f),
+                compositing = CompositingConfig(vignetteIntensity = 0.40f, vignetteSmoothness = 0.65f, borderMaskAsset = "presets/borders/polaroid_frame.png", enableDateStamp = false)
             )
 
             // =================================================================
