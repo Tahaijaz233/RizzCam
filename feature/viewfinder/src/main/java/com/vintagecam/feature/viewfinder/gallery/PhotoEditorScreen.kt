@@ -179,10 +179,11 @@ fun PhotoEditorScreen(
     item: GalleryItem,
     onDismiss: () -> Unit,
     onSaved: (Uri) -> Unit,
-    haptics: RetroHapticsEngine,
+    hapticsEngine: RetroHapticsEngine? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val haptics = remember(context) { hapticsEngine ?: RetroHapticsEngine(context) }
     val coroutineScope = rememberCoroutineScope()
 
     // Loaded source bitmap
@@ -385,11 +386,14 @@ fun PhotoEditorScreen(
             ) {
                 val bmp = originalBitmap
                 if (bmp != null) {
-                    val colorFilter = remember(isComparing, exposureEv, contrast, saturation, warmth) {
+                    val composeColorFilter = remember(isComparing, exposureEv, contrast, saturation, warmth) {
                         if (isComparing) {
                             null
                         } else {
-                            buildToneColorFilter(exposureEv, contrast, saturation, warmth)
+                            val cm = buildToneColorMatrix(exposureEv, contrast, saturation, warmth)
+                            androidx.compose.ui.graphics.ColorFilter.colorMatrix(
+                                androidx.compose.ui.graphics.ColorMatrix(cm.array)
+                            )
                         }
                     }
 
@@ -405,7 +409,7 @@ fun PhotoEditorScreen(
                         Image(
                             bitmap = bmp.asImageBitmap(),
                             contentDescription = "Edited Preview",
-                            colorFilter = colorFilter,
+                            colorFilter = composeColorFilter,
                             contentScale = ContentScale.Fit,
                             modifier = Modifier
                                 .fillMaxSize()
@@ -1018,12 +1022,12 @@ private fun VintageControls(
 /**
  * Builds standard Tone ColorFilter from Exposure, Contrast, Saturation, and Warmth.
  */
-private fun buildToneColorFilter(
+private fun buildToneColorMatrix(
     exposureEv: Float,
     contrast: Float,
     saturation: Float,
     warmth: Float
-): ColorFilter {
+): ColorMatrix {
     val cm = ColorMatrix()
 
     // 1. Exposure shift via matrix scaling
@@ -1070,7 +1074,7 @@ private fun buildToneColorFilter(
     cm.postConcat(satMatrix)
     cm.postConcat(warmthMatrix)
 
-    return ColorMatrixColorFilter(cm)
+    return cm
 }
 
 /**
@@ -1149,7 +1153,7 @@ private suspend fun processAndSaveEditedPhoto(
 
         // Draw base bitmap with tone filter
         val tonePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            colorFilter = buildToneColorFilter(exposureEv, contrast, saturation, warmth)
+            colorFilter = ColorMatrixColorFilter(buildToneColorMatrix(exposureEv, contrast, saturation, warmth))
         }
         canvas.drawBitmap(transformed, 0f, 0f, tonePaint)
 

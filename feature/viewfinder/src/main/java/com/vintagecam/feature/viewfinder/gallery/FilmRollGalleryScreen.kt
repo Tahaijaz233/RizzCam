@@ -575,8 +575,7 @@ fun FilmRollGalleryScreen(
                     }
                     items = loaded
                 }
-            },
-            haptics = haptics
+            }
         )
     }
 
