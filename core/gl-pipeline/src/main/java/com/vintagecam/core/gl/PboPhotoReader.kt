@@ -61,12 +61,7 @@ class PboPhotoReader {
                 GLES30.glUnmapBuffer(GLES30.GL_PIXEL_PACK_BUFFER)
             }
 
-            // Invert Y axis to convert from OpenGL bottom-left origin to Android Bitmap top-left origin
-            val flipMatrix = android.graphics.Matrix().apply { postScale(1.0f, -1.0f) }
-            val uprightBitmap = Bitmap.createBitmap(rawBitmap, 0, 0, width, height, flipMatrix, false)
-            rawBitmap.recycle()
-
-            return uprightBitmap
+            return rawBitmap
         } finally {
             GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER, 0)
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)

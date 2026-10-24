@@ -2,22 +2,31 @@ package com.vintagecam.feature.viewfinder.gallery
 
 import android.content.ContentUris
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.util.Log
+import android.util.Size
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,69 +39,109 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.roundToInt
 
 /**
- * Metadata record for a single film exposure frame on the contact sheet.
+ * Filter categories for gallery media assets on the top bar.
+ */
+enum class GalleryCategory(val label: String) {
+    ALL("All photos"),
+    IMAGES("Images"),
+    VIDEOS("Videos"),
+    OTHERS("Others")
+}
+
+/**
+ * Media asset classification types.
+ */
+enum class MediaType {
+    IMAGE,
+    VIDEO,
+    OTHER
+}
+
+/**
+ * Representation of an individual media asset in the gallery.
+ */
+data class GalleryItem(
+    val id: Long,
+    val uri: Uri,
+    val displayName: String,
+    val dateTaken: Long,
+    val mediaType: MediaType,
+    val mimeType: String = "",
+    val sizeBytes: Long = 0L,
+    val durationMs: Long = 0L,
+    val isCameraPhoto: Boolean = true
+)
+
+/**
+ * Compatibility model for legacy references.
  */
 data class FilmFrameItem(
     val id: Long,
@@ -107,85 +156,183 @@ data class FilmFrameItem(
 )
 
 /**
- * Skeuomorphic Film Roll Contact Sheet & Gallery Screen.
- *
- * Features:
- * - Vintage photographer's backlit milk-glass light table aesthetic.
- * - Continuous 35mm film negative strip with sprocket holes, frame numbers (01, 01A, 02, 02A...),
- *   and amber edge rebate markings.
- * - Full-screen photo inspection with interactive pinch-to-zoom and pan.
- * - Skeuomorphic "Photolab Development Slip": Perforated receipt with EXIF metadata & quality stamp.
- * - Strict memory safety: Bounded thumbnail decoding, zero leaks.
+ * Finds the key (item ID) of the item positioned under [offset] in the [gridState].
+ * Guaranteed accurate across scrolling and responsive layouts.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+internal fun findItemKeyAtOffset(gridState: LazyGridState, offset: Offset): Long? {
+    val visibleItems = gridState.layoutInfo.visibleItemsInfo
+    return visibleItems.firstOrNull { item ->
+        val x = item.offset.x.toFloat()
+        val y = item.offset.y.toFloat()
+        val w = item.size.width.toFloat()
+        val h = item.size.height.toFloat()
+        offset.x in x..(x + w) && offset.y in y..(y + h)
+    }?.key as? Long
+}
+
+/**
+ * Modern High-Performance Image Gallery Screen for RizzCam.
+ *
+ * Implements:
+ * 1. Image gallery UI replacing legacy film roll negative look.
+ * 2. All photos displayed in strict 1:1 square tiles.
+ * 3. Small camera icon on the bottom left of photo thumbnails and floating screen return button.
+ * 4. Top category filter selector ("All photos", "Images", "Videos", "Others").
+ * 5. Selection mode allowing single or multi-selection with Delete and Share capabilities.
+ * 6. Slide-over multi-selection: smoothly drag finger across items to select them.
+ * 7. Fullscreen photo viewer with pinch-to-zoom, pan, share, and delete.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun FilmRollGalleryScreen(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var frames by remember { mutableStateOf<List<FilmFrameItem>>(emptyList()) }
-    var selectedFrame by remember { mutableStateOf<FilmFrameItem?>(null) }
-    var isDevelopmentSlipOpen by remember { mutableStateOf(false) }
-    var isLightTableOn by remember { mutableStateOf(true) }
+    val coroutineScope = rememberCoroutineScope()
+    val density = LocalDensity.current
 
-    // Load recent photos from MediaStore Pictures/RizzCam
+    var items by remember { mutableStateOf<List<GalleryItem>>(emptyList()) }
+    var selectedCategory by remember { mutableStateOf(GalleryCategory.ALL) }
+    var isSelectionMode by remember { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var previewItem by remember { mutableStateOf<GalleryItem?>(null) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var deletePendingIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+
+    val gridState = rememberLazyGridState()
+    var gridHeightPx by remember { mutableFloatStateOf(1000f) }
+    val edgeScrollThreshold = with(density) { 90.dp.toPx() }
+    val scrollStep = with(density) { 24.dp.toPx() }
+
+    // Query media items on mount
     LaunchedEffect(Unit) {
-        val loadedFrames = withContext(Dispatchers.IO) {
-            queryRizzCamPhotos(context)
+        val loaded = withContext(Dispatchers.IO) {
+            queryAllMedia(context)
         }
-        frames = loadedFrames
+        items = loaded
     }
 
-    val lightTableColor = if (isLightTableOn) Color(0xFFF0F4F8) else Color(0xFF1E2022)
-    val lightTableGlow = if (isLightTableOn) Color(0xFFFFFFFF) else Color(0xFF2B2D30)
+    // System back button handling
+    BackHandler {
+        when {
+            previewItem != null -> previewItem = null
+            isSelectionMode -> {
+                isSelectionMode = false
+                selectedIds = emptySet()
+            }
+            else -> onNavigateBack()
+        }
+    }
+
+    // Filter media by active top category
+    val filteredItems = remember(items, selectedCategory) {
+        when (selectedCategory) {
+            GalleryCategory.ALL -> items
+            GalleryCategory.IMAGES -> items.filter { it.mediaType == MediaType.IMAGE }
+            GalleryCategory.VIDEOS -> items.filter { it.mediaType == MediaType.VIDEO }
+            GalleryCategory.OTHERS -> items.filter { it.mediaType == MediaType.OTHER || !it.isCameraPhoto }
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
+                    if (isSelectionMode) {
                         Text(
-                            text = "LIGHT TABLE · CONTACT SHEET",
-                            fontSize = 14.sp,
+                            text = "${selectedIds.size} selected",
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            letterSpacing = 1.8.sp,
-                            color = Color(0xFFCCCCCC)
+                            color = Color.White
                         )
+                    } else {
                         Text(
-                            text = "ROLL #001 · 35MM NEGATIVE STRIPS",
-                            fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = Color(0xFF888888)
+                            text = "Gallery",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
+                    if (isSelectionMode) {
+                        IconButton(onClick = {
+                            isSelectionMode = false
+                            selectedIds = emptySet()
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cancel Selection",
+                                tint = Color.White
+                            )
+                        }
+                    } else {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back to Camera",
+                                tint = Color.White
+                            )
+                        }
                     }
                 },
                 actions = {
-                    // Light Table Power Toggle
-                    IconButton(onClick = { isLightTableOn = !isLightTableOn }) {
-                        Icon(
-                            imageVector = Icons.Default.Lightbulb,
-                            contentDescription = "Toggle Light Table",
-                            tint = if (isLightTableOn) Color(0xFFFFD54F) else Color(0xFF666666)
-                        )
-                    }
-                    // Open Photolab Development Slip
-                    IconButton(onClick = { isDevelopmentSlipOpen = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Description,
-                            contentDescription = "Photolab Slip",
-                            tint = Color(0xFF4FC3F7)
-                        )
+                    if (isSelectionMode) {
+                        // Toggle Select All
+                        IconButton(onClick = {
+                            selectedIds = if (selectedIds.size == filteredItems.size) {
+                                emptySet()
+                            } else {
+                                filteredItems.map { it.id }.toSet()
+                            }
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.SelectAll,
+                                contentDescription = "Select All",
+                                tint = Color(0xFFFFD54F)
+                            )
+                        }
+
+                        // Share Action
+                        IconButton(
+                            onClick = {
+                                val selectedItems = items.filter { it.id in selectedIds }
+                                shareMediaItems(context, selectedItems)
+                            },
+                            enabled = selectedIds.isNotEmpty()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Share",
+                                tint = if (selectedIds.isNotEmpty()) Color.White else Color(0xFF666666)
+                            )
+                        }
+
+                        // Delete Action
+                        IconButton(
+                            onClick = {
+                                deletePendingIds = selectedIds
+                                showDeleteDialog = true
+                            },
+                            enabled = selectedIds.isNotEmpty()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                tint = if (selectedIds.isNotEmpty()) Color(0xFFFF5252) else Color(0xFF666666)
+                            )
+                        }
+                    } else {
+                        // Enter selection mode button
+                        TextButton(onClick = { isSelectionMode = true }) {
+                            Text(
+                                text = "Select",
+                                color = Color(0xFFFFD54F),
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -201,386 +348,382 @@ fun FilmRollGalleryScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Light Table Backlit Surface
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(lightTableGlow, lightTableColor),
-                            radius = 1200f
-                        )
-                    )
-                    .border(2.dp, Color(0xFF2A2C30), RoundedCornerShape(8.dp))
+            Column(
+                modifier = Modifier.fillMaxSize()
             ) {
-                // Subtle Light Table Grid Lines
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    if (isLightTableOn) {
-                        val gridSize = 40.dp.toPx()
-                        val gridColor = Color(0x18000000)
-                        var x = 0f
-                        while (x < size.width) {
-                            drawLine(gridColor, Offset(x, 0f), Offset(x, size.height), 1f)
-                            x += gridSize
-                        }
-                        var y = 0f
-                        while (y < size.height) {
-                            drawLine(gridColor, Offset(0f, y), Offset(size.width, y), 1f)
-                            y += gridSize
-                        }
+                // Category Selector Tabs on the top
+                GalleryCategoryRow(
+                    selectedCategory = selectedCategory,
+                    onCategorySelected = { category ->
+                        selectedCategory = category
                     }
-                }
-
-                if (frames.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "NO EXPOSURES ON THIS ROLL YET\nSNAP PHOTOS IN VIEWFINDER",
-                            color = Color(0xFF777777),
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 12.sp,
-                            letterSpacing = 1.5.sp,
-                            lineHeight = 20.sp,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                    }
-                } else {
-                    // Contact Sheet Film Strips (rows of 4 frames each)
-                    val chunkedFrames = remember(frames) { frames.chunked(4) }
-
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
-                        itemsIndexed(chunkedFrames) { stripIndex, stripFrames ->
-                            FilmNegativeStrip(
-                                stripIndex = stripIndex,
-                                frames = stripFrames,
-                                onFrameClicked = { selectedFrame = it }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Photolab Development Slip Modal Sheet
-            AnimatedVisibility(
-                visible = isDevelopmentSlipOpen,
-                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-                modifier = Modifier.align(Alignment.BottomCenter)
-            ) {
-                PhotolabDevelopmentSlip(
-                    frame = selectedFrame ?: frames.firstOrNull(),
-                    totalExposures = frames.size,
-                    onClose = { isDevelopmentSlipOpen = false }
                 )
-            }
 
-            // Fullscreen Photo Inspector with Pinch-to-Zoom
-            selectedFrame?.let { frame ->
-                FullscreenPhotoInspector(
-                    frame = frame,
-                    onClose = { selectedFrame = null }
-                )
-            }
-        }
-    }
-}
-
-/**
- * Skeuomorphic 35mm Film Negative Strip with sprocket perforations and edge rebate numbering.
- */
-@Composable
-private fun FilmNegativeStrip(
-    stripIndex: Int,
-    frames: List<FilmFrameItem>,
-    onFrameClicked: (FilmFrameItem) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val scrollState = rememberScrollState()
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .shadow(12.dp, RoundedCornerShape(2.dp), ambientColor = Color.Black)
-            .clip(RoundedCornerShape(2.dp))
-            .background(Color(0xFF141211)) // Acetate film base
-            .border(1.dp, Color(0xFF26221E), RoundedCornerShape(2.dp))
-            .horizontalScroll(scrollState)
-            .padding(vertical = 4.dp, horizontal = 8.dp)
-    ) {
-        // Top Sprocket Holes & Edge Rebate Text
-        SprocketEdgeBar(
-            stripIndex = stripIndex,
-            frameCount = frames.size,
-            isTop = true
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Negative Frames Row
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 4.dp)
-        ) {
-            frames.forEachIndexed { index, frame ->
-                val frameNumber = (stripIndex * 4 + index + 1)
-                val frameLabel = String.format(Locale.US, "%02d", frameNumber)
-
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.width(130.dp)
-                ) {
-                    // Film Frame Window
-                    Box(
-                        modifier = Modifier
-                            .size(width = 130.dp, height = 95.dp)
-                            .clip(RoundedCornerShape(1.dp))
-                            .background(Color(0xFF0A0908))
-                            .border(1.dp, Color(0xFF332D27), RoundedCornerShape(1.dp))
-                            .clickable { onFrameClicked(frame) }
-                    ) {
-                        MemorySafeThumbnail(
-                            uri = frame.uri,
-                            contentDescription = "Frame $frameLabel"
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(3.dp))
-
-                    // Frame Index Stencil under frame
-                    Text(
-                        text = "$frameLabel ◀",
-                        color = Color(0xFFE68A00), // Classic orange/amber rebate dye
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 1.sp
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Bottom Sprocket Holes & Barcodes
-        SprocketEdgeBar(
-            stripIndex = stripIndex,
-            frameCount = frames.size,
-            isTop = false
-        )
-    }
-}
-
-/**
- * Precision sprocket holes and orange/amber film edge rebate markings.
- */
-@Composable
-private fun SprocketEdgeBar(
-    stripIndex: Int,
-    frameCount: Int,
-    isTop: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val rebateTextColor = Color(0xFFE68A00)
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(20.dp),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        // Sprocket Perforations Canvas
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val holeWidth = 14.dp.toPx()
-            val holeHeight = 10.dp.toPx()
-            val spacing = 22.dp.toPx()
-            val corner = 2.dp.toPx()
-
-            var currentX = 12.dp.toPx()
-            val y = (size.height - holeHeight) / 2f
-
-            while (currentX < size.width + 400.dp.toPx()) {
-                drawRoundRect(
-                    color = Color(0xFFF0F4F8), // White light passing through hole
-                    topLeft = Offset(currentX, y),
-                    size = Size(holeWidth, holeHeight),
-                    cornerRadius = CornerRadius(corner, corner)
-                )
-                // Inner sprocket shadow
-                drawRoundRect(
-                    color = Color(0x33000000),
-                    topLeft = Offset(currentX, y),
-                    size = Size(holeWidth, holeHeight),
-                    cornerRadius = CornerRadius(corner, corner),
-                    style = Stroke(width = 1f)
-                )
-                currentX += spacing
-            }
-        }
-
-        // Stenciled text between sprockets
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 6.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            val mark1 = if (isTop) "KODAK PORTRA 400" else "SAFETY FILM 5063"
-            val mark2 = if (isTop) "DX CASSETTE" else "PROCESS C-41"
-
-            Text(
-                text = mark1,
-                color = rebateTextColor,
-                fontSize = 7.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = 1.2.sp
-            )
-            Text(
-                text = "▶ ${stripIndex * 4 + 1}A",
-                color = rebateTextColor,
-                fontSize = 7.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = 1.sp
-            )
-            Text(
-                text = mark2,
-                color = rebateTextColor,
-                fontSize = 7.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = 1.2.sp
-            )
-        }
-    }
-}
-
-/**
- * Skeuomorphic Photolab Development Slip (receipt) displaying EXIF shooting metadata.
- */
-@Composable
-fun PhotolabDevelopmentSlip(
-    frame: FilmFrameItem?,
-    totalExposures: Int,
-    onClose: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val dateString = remember(frame) {
-        val time = frame?.dateTaken ?: System.currentTimeMillis()
-        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date(time))
-    }
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-            .shadow(24.dp, RoundedCornerShape(4.dp))
-            .clip(RoundedCornerShape(4.dp))
-            .background(Color(0xFFFAF7EE)) // Aged warm thermal paper
-            .border(1.dp, Color(0xFFDED8C7), RoundedCornerShape(4.dp))
-            .padding(18.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // Perforated Sawtooth Top Edge Effect
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-            ) {
-                val teeth = 24
-                val toothWidth = size.width / teeth
-                val path = Path().apply {
-                    moveTo(0f, 0f)
-                    for (i in 0 until teeth) {
-                        lineTo((i + 0.5f) * toothWidth, size.height)
-                        lineTo((i + 1f) * toothWidth, 0f)
-                    }
-                    close()
-                }
-                drawPath(path, Color(0xFFE5DFC9))
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Lab Receipt Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "RIZZ PHOTO LAB",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 2.sp,
-                        color = Color(0xFF22201D)
-                    )
-                    Text(
-                        text = "ORDER DOCKET #RZ-9482-B",
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = Color(0xFF6B655A)
-                    )
-                }
-
-                IconButton(onClick = onClose, modifier = Modifier.size(28.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = Color(0xFF555045)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-            ReceiptDivider()
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Metadata Lines
-            ReceiptRow(label = "FILM STOCK", value = frame?.presetName ?: "PORTRA 400 (35mm)")
-            ReceiptRow(label = "CHEMISTRY", value = "C-41 COLOR NEGATIVE")
-            ReceiptRow(label = "EXPOSURE", value = "${frame?.shutterSpeed ?: "1/250s"} · ${frame?.aperture ?: "f/2.8"}")
-            ReceiptRow(label = "ISO SPEED", value = frame?.iso ?: "400")
-            ReceiptRow(label = "FOCAL LENGTH", value = frame?.focalLength ?: "35mm EQUIV")
-            ReceiptRow(label = "EMULSION LOT", value = "#PR-8832-A")
-            ReceiptRow(label = "TIMESTAMP", value = dateString)
-            ReceiptRow(label = "TOTAL FRAMES", value = "$totalExposures / 36 EXPOSURES")
-
-            Spacer(modifier = Modifier.height(12.dp))
-            ReceiptDivider()
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Photolab Stamp of Quality
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                contentAlignment = Alignment.Center
-            ) {
+                // Main Media Grid with Slide-Over Multi-Selection
                 Box(
                     modifier = Modifier
-                        .border(2.dp, Color(0xFFC62828), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .onSizeChanged { size ->
+                            gridHeightPx = size.height.toFloat()
+                        }
+                        .pointerInput(isSelectionMode, filteredItems) {
+                            if (isSelectionMode) {
+                                detectDragGestures(
+                                    onDragStart = { offset ->
+                                        val touchedId = findItemKeyAtOffset(gridState, offset)
+                                        if (touchedId != null) {
+                                            selectedIds = selectedIds + touchedId
+                                        }
+                                    },
+                                    onDrag = { change, _ ->
+                                        change.consume()
+                                        val touchedId = findItemKeyAtOffset(gridState, change.position)
+                                        if (touchedId != null) {
+                                            selectedIds = selectedIds + touchedId
+                                        }
+
+                                        // Auto-scroll when dragging near viewport boundary
+                                        val y = change.position.y
+                                        if (y < edgeScrollThreshold) {
+                                            coroutineScope.launch {
+                                                gridState.scrollBy(-scrollStep)
+                                            }
+                                        } else if (y > gridHeightPx - edgeScrollThreshold) {
+                                            coroutineScope.launch {
+                                                gridState.scrollBy(scrollStep)
+                                            }
+                                        }
+                                    }
+                                )
+                            } else {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = { offset ->
+                                        val touchedId = findItemKeyAtOffset(gridState, offset)
+                                        if (touchedId != null) {
+                                            isSelectionMode = true
+                                            selectedIds = setOf(touchedId)
+                                        }
+                                    },
+                                    onDrag = { change, _ ->
+                                        change.consume()
+                                        val touchedId = findItemKeyAtOffset(gridState, change.position)
+                                        if (touchedId != null) {
+                                            selectedIds = selectedIds + touchedId
+                                        }
+
+                                        val y = change.position.y
+                                        if (y < edgeScrollThreshold) {
+                                            coroutineScope.launch {
+                                                gridState.scrollBy(-scrollStep)
+                                            }
+                                        } else if (y > gridHeightPx - edgeScrollThreshold) {
+                                            coroutineScope.launch {
+                                                gridState.scrollBy(scrollStep)
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                ) {
+                    if (filteredItems.isEmpty()) {
+                        GalleryEmptyState(selectedCategory = selectedCategory)
+                    } else {
+                        LazyVerticalGrid(
+                            state = gridState,
+                            columns = GridCells.Fixed(3),
+                            contentPadding = PaddingValues(2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(filteredItems, key = { it.id }) { item ->
+                                val isSelected = item.id in selectedIds
+
+                                GallerySquareThumbnail(
+                                    item = item,
+                                    isSelectionMode = isSelectionMode,
+                                    isSelected = isSelected,
+                                    onClick = {
+                                        if (isSelectionMode) {
+                                            selectedIds = if (isSelected) {
+                                                selectedIds - item.id
+                                            } else {
+                                                selectedIds + item.id
+                                            }
+                                        } else {
+                                            previewItem = item
+                                        }
+                                    },
+                                    onLongClick = {
+                                        isSelectionMode = true
+                                        selectedIds = selectedIds + item.id
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Small camera icon on the bottom left of the gallery screen (quick return to camera)
+            FloatingActionButton(
+                onClick = onNavigateBack,
+                shape = CircleShape,
+                containerColor = Color(0xFF1E1E22).copy(alpha = 0.92f),
+                contentColor = Color(0xFFFFD54F),
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp),
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .navigationBarsPadding()
+                    .padding(start = 16.dp, bottom = 16.dp)
+                    .size(46.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CameraAlt,
+                    contentDescription = "Return to Camera",
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+    }
+
+    // Fullscreen interactive photo inspector
+    previewItem?.let { item ->
+        FullscreenPhotoViewer(
+            item = item,
+            onDismiss = { previewItem = null },
+            onShare = {
+                shareMediaItems(context, listOf(item))
+            },
+            onDelete = {
+                deletePendingIds = setOf(item.id)
+                showDeleteDialog = true
+            }
+        )
+    }
+
+    // Delete confirmation dialog
+    if (showDeleteDialog && deletePendingIds.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = {
+                showDeleteDialog = false
+                deletePendingIds = emptySet()
+            },
+            title = {
+                Text(
+                    text = "Delete ${deletePendingIds.size} item${if (deletePendingIds.size > 1) "s" else ""}?",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            },
+            text = {
+                Text(
+                    text = "This will permanently delete the selected photos or videos from your device storage.",
+                    color = Color(0xFFCCCCCC),
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val idsToDelete = deletePendingIds
+                        coroutineScope.launch {
+                            withContext(Dispatchers.IO) {
+                                for (id in idsToDelete) {
+                                    val item = items.find { it.id == id }
+                                    item?.let {
+                                        try {
+                                            context.contentResolver.delete(it.uri, null, null)
+                                        } catch (e: Exception) {
+                                            Log.w("ImageGallery", "Failed to delete item: ${it.uri}", e)
+                                        }
+                                    }
+                                }
+                            }
+                            items = items.filterNot { it.id in idsToDelete }
+                            selectedIds = selectedIds - idsToDelete
+                            if (selectedIds.isEmpty()) {
+                                isSelectionMode = false
+                            }
+                            if (previewItem?.id in idsToDelete) {
+                                previewItem = null
+                            }
+                            showDeleteDialog = false
+                            deletePendingIds = emptySet()
+                        }
+                    }
                 ) {
                     Text(
-                        text = "PASSED · QUALITY CONTROL CHECK",
-                        color = Color(0xFFC62828),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 1.2.sp
+                        text = "Delete",
+                        color = Color(0xFFFF5252),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        deletePendingIds = emptySet()
+                    }
+                ) {
+                    Text(
+                        text = "Cancel",
+                        color = Color(0xFFAAAAAA)
+                    )
+                }
+            },
+            containerColor = Color(0xFF1E1E22)
+        )
+    }
+}
+
+/**
+ * Top category filter selector row.
+ */
+@Composable
+private fun GalleryCategoryRow(
+    selectedCategory: GalleryCategory,
+    onCategorySelected: (GalleryCategory) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        GalleryCategory.entries.forEach { category ->
+            val isSelected = category == selectedCategory
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = if (isSelected) Color(0xFFFFD54F) else Color(0xFF202024),
+                contentColor = if (isSelected) Color(0xFF121214) else Color(0xFFB0B0B0),
+                modifier = Modifier
+                    .clickable { onCategorySelected(category) }
+            ) {
+                Text(
+                    text = category.label,
+                    fontSize = 13.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Square thumbnail item for the gallery grid.
+ *
+ * Implements:
+ * - Square 1:1 aspect ratio constraint.
+ * - Small camera icon badge on bottom-left.
+ * - Video duration pill on bottom-right (for video assets).
+ * - Multi-selection checkbox and border highlight.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun GallerySquareThumbnail(
+    item: GalleryItem,
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .aspectRatio(1f) // All photos stored and displayed as a square
+            .clip(RoundedCornerShape(3.dp))
+            .background(Color(0xFF1A1A1E))
+            .border(
+                width = if (isSelected) 3.dp else 0.dp,
+                color = if (isSelected) Color(0xFFFFD54F) else Color.Transparent,
+                shape = RoundedCornerShape(3.dp)
+            )
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
+    ) {
+        // Thumbnail Image
+        MemorySafeThumbnail(
+            uri = item.uri,
+            isVideo = item.mediaType == MediaType.VIDEO,
+            contentDescription = item.displayName,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Small camera icon on the bottom left
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(6.dp)
+                .background(Color.Black.copy(alpha = 0.65f), CircleShape)
+                .padding(4.dp)
+        ) {
+            Icon(
+                imageVector = if (item.mediaType == MediaType.VIDEO) Icons.Default.Videocam else Icons.Default.CameraAlt,
+                contentDescription = "Camera",
+                tint = Color.White,
+                modifier = Modifier.size(13.dp)
+            )
+        }
+
+        // Video duration badge on bottom-right
+        if (item.mediaType == MediaType.VIDEO && item.durationMs > 0) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(6.dp)
+                    .background(Color.Black.copy(alpha = 0.65f), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    text = formatDuration(item.durationMs),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White
+                )
+            }
+        }
+
+        // Selection overlay and checkmark badge
+        if (isSelectionMode) {
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0x33FFD54F))
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+                    .size(22.dp)
+                    .background(
+                        if (isSelected) Color(0xFFFFD54F) else Color.Black.copy(alpha = 0.45f),
+                        CircleShape
+                    )
+                    .border(
+                        width = 1.5.dp,
+                        color = if (isSelected) Color(0xFFFFD54F) else Color.White.copy(alpha = 0.8f),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Selected",
+                        tint = Color.Black,
+                        modifier = Modifier.size(15.dp)
                     )
                 }
             }
@@ -588,160 +731,51 @@ fun PhotolabDevelopmentSlip(
     }
 }
 
-@Composable
-private fun ReceiptRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 2.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            fontSize = 10.sp,
-            fontFamily = FontFamily.Monospace,
-            color = Color(0xFF7A7365)
-        )
-        Text(
-            text = value,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace,
-            color = Color(0xFF1E1C18)
-        )
-    }
-}
-
-@Composable
-private fun ReceiptDivider() {
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-    ) {
-        drawLine(
-            color = Color(0xFFDDD6C3),
-            start = Offset(0f, 0f),
-            end = Offset(size.width, 0f),
-            strokeWidth = 1f
-        )
-    }
-}
-
 /**
- * Fullscreen Interactive Photo Inspector with Pinch-to-Zoom & Pan.
- */
-@Composable
-fun FullscreenPhotoInspector(
-    frame: FilmFrameItem,
-    onClose: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
-
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.94f))
-            .pointerInput(Unit) {
-                detectTransformGestures { _, pan, zoom, _ ->
-                    scale = (scale * zoom).coerceIn(1f, 5f)
-                    if (scale > 1f) {
-                        val maxOffset = 600f * (scale - 1f)
-                        offset = Offset(
-                            (offset.x + pan.x).coerceIn(-maxOffset, maxOffset),
-                            (offset.y + pan.y).coerceIn(-maxOffset, maxOffset)
-                        )
-                    } else {
-                        offset = Offset.Zero
-                    }
-                }
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        MemorySafeThumbnail(
-            uri = frame.uri,
-            contentDescription = frame.displayName,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp)
-                .graphicsLayer(
-                    scaleX = scale,
-                    scaleY = scale,
-                    translationX = offset.x,
-                    translationY = offset.y
-                )
-        )
-
-        // Close button
-        IconButton(
-            onClick = onClose,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .statusBarsPadding()
-                .padding(16.dp)
-                .size(40.dp)
-                .background(Color.Black.copy(alpha = 0.6f), CircleShape)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Close Inspector",
-                tint = Color.White
-            )
-        }
-
-        // Zoom helper pill
-        Surface(
-            color = Color.Black.copy(alpha = 0.7f),
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 24.dp)
-        ) {
-            Text(
-                text = "Pinch to zoom (${String.format(Locale.US, "%.1f", scale)}x) · Double tap to reset",
-                color = Color.White.copy(alpha = 0.8f),
-                fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace,
-                modifier = Modifier
-                    .clickable {
-                        scale = 1f
-                        offset = Offset.Zero
-                    }
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            )
-        }
-    }
-}
-
-/**
- * Memory-safe thumbnail composable that decodes using bounded sample size and recycles safely.
+ * Memory-safe thumbnail composable that decodes using bounded sample size.
  */
 @Composable
 private fun MemorySafeThumbnail(
     uri: Uri,
+    isVideo: Boolean,
     contentDescription: String,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var bitmap by remember(uri) { mutableStateOf<Bitmap?>(null) }
 
     LaunchedEffect(uri) {
-        val decoded = withContext(Dispatchers.IO) {
+        val loaded = withContext(Dispatchers.IO) {
             try {
-                context.contentResolver.openInputStream(uri)?.use { stream ->
-                    val options = BitmapFactory.Options().apply {
-                        inSampleSize = 2 // Safeguard: prevents high-res bitmap leak
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val size = Size(360, 360)
+                    context.contentResolver.loadThumbnail(uri, size, null)
+                } else {
+                    if (isVideo) {
+                        null
+                    } else {
+                        context.contentResolver.openInputStream(uri)?.use { stream ->
+                            val options = BitmapFactory.Options().apply {
+                                inSampleSize = 2
+                            }
+                            BitmapFactory.decodeStream(stream, null, options)
+                        }
                     }
-                    BitmapFactory.decodeStream(stream, null, options)
                 }
             } catch (e: Exception) {
-                null
+                try {
+                    context.contentResolver.openInputStream(uri)?.use { stream ->
+                        val options = BitmapFactory.Options().apply {
+                            inSampleSize = 2
+                        }
+                        BitmapFactory.decodeStream(stream, null, options)
+                    }
+                } catch (t: Throwable) {
+                    null
+                }
             }
         }
-        bitmap = decoded
+        bitmap = loaded
     }
 
     val currentBitmap = bitmap
@@ -756,73 +790,398 @@ private fun MemorySafeThumbnail(
         Box(
             modifier = modifier
                 .fillMaxSize()
-                .background(Color(0xFF1C1A18)),
+                .background(Color(0xFF1B1B1E)),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = "EXPOSURE",
-                fontSize = 9.sp,
-                fontFamily = FontFamily.Monospace,
-                color = Color(0xFF665E55)
+            Icon(
+                imageVector = if (isVideo) Icons.Default.Videocam else Icons.Default.CameraAlt,
+                contentDescription = null,
+                tint = Color(0xFF444448),
+                modifier = Modifier.size(24.dp)
             )
         }
     }
 }
 
 /**
- * Queries MediaStore for photos exported to `Pictures/RizzCam`.
+ * Interactive full-screen photo viewer with pinch-to-zoom and pan gestures.
  */
-private fun queryRizzCamPhotos(context: Context): List<FilmFrameItem> {
-    val items = mutableListOf<FilmFrameItem>()
-    val projection = arrayOf(
-        MediaStore.Images.Media._ID,
-        MediaStore.Images.Media.DISPLAY_NAME,
-        MediaStore.Images.Media.DATE_TAKEN
-    )
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FullscreenPhotoViewer(
+    item: GalleryItem,
+    onDismiss: () -> Unit,
+    onShare: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    var fullBitmap by remember(item.uri) { mutableStateOf<Bitmap?>(null) }
 
-    val selection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        "${MediaStore.Images.Media.RELATIVE_PATH} LIKE ? OR ${MediaStore.Images.Media.DATA} LIKE ?"
-    } else {
-        "${MediaStore.Images.Media.DATA} LIKE ?"
+    LaunchedEffect(item.uri) {
+        val loaded = withContext(Dispatchers.IO) {
+            try {
+                context.contentResolver.openInputStream(item.uri)?.use { stream ->
+                    val options = BitmapFactory.Options().apply {
+                        inSampleSize = 1
+                    }
+                    BitmapFactory.decodeStream(stream, null, options)
+                }
+            } catch (e: Exception) {
+                null
+            }
+        }
+        fullBitmap = loaded
     }
-    val selectionArgs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        arrayOf("%Pictures/RizzCam%", "%Pictures/RizzCam%")
-    } else {
-        arrayOf("%Pictures/RizzCam%")
-    }
-    val sortOrder = "${MediaStore.Images.Media.DATE_TAKEN} DESC"
 
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(
+                            text = item.displayName,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = formatDate(item.dateTaken),
+                            fontSize = 11.sp,
+                            color = Color(0xFFAAAAAA)
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Close",
+                            tint = Color.White
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onShare) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Share",
+                            tint = Color.White
+                        )
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete",
+                            tint = Color(0xFFFF5252)
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Black.copy(alpha = 0.85f)
+                )
+            )
+        },
+        containerColor = Color.Black,
+        modifier = modifier.fillMaxSize()
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, pan, zoom, _ ->
+                        scale = (scale * zoom).coerceIn(1f, 5f)
+                        if (scale == 1f) {
+                            offset = Offset.Zero
+                        } else {
+                            val maxOffsetX = (size.width * (scale - 1)) / 2f
+                            val maxOffsetY = (size.height * (scale - 1)) / 2f
+                            offset = Offset(
+                                x = (offset.x + pan.x).coerceIn(-maxOffsetX, maxOffsetX),
+                                y = (offset.y + pan.y).coerceIn(-maxOffsetY, maxOffsetY)
+                            )
+                        }
+                    }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            val bmp = fullBitmap
+            if (bmp != null) {
+                Image(
+                    bitmap = bmp.asImageBitmap(),
+                    contentDescription = item.displayName,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer(
+                            scaleX = scale,
+                            scaleY = scale,
+                            translationX = offset.x,
+                            translationY = offset.y
+                        )
+                )
+            } else {
+                Text(
+                    text = "Loading photo...",
+                    color = Color(0xFF888888),
+                    fontSize = 14.sp
+                )
+            }
+
+            // Zoom reset pill
+            if (scale > 1f) {
+                Surface(
+                    color = Color.Black.copy(alpha = 0.70f),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(bottom = 24.dp)
+                ) {
+                    Text(
+                        text = "Double tap to reset zoom (${String.format(Locale.US, "%.1f", scale)}x)",
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier
+                            .clickable {
+                                scale = 1f
+                                offset = Offset.Zero
+                            }
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Clean empty state placeholder.
+ */
+@Composable
+private fun GalleryEmptyState(
+    selectedCategory: GalleryCategory,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.PhotoLibrary,
+                contentDescription = null,
+                tint = Color(0xFF44444A),
+                modifier = Modifier.size(56.dp)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "No ${selectedCategory.label.lowercase()} found",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFFCCCCCC)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Photos captured with RizzCam are stored as square photos and will appear here.",
+                fontSize = 13.sp,
+                color = Color(0xFF777777),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+/**
+ * Launches Android system share sheet for single or multiple media assets.
+ */
+private fun shareMediaItems(context: Context, itemsToShare: List<GalleryItem>) {
+    if (itemsToShare.isEmpty()) return
     try {
-        context.contentResolver.query(
+        val intent = if (itemsToShare.size == 1) {
+            val item = itemsToShare.first()
+            val mime = item.mimeType.ifEmpty {
+                if (item.mediaType == MediaType.VIDEO) "video/*" else "image/*"
+            }
+            Intent(Intent.ACTION_SEND).apply {
+                type = mime
+                putExtra(Intent.EXTRA_STREAM, item.uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        } else {
+            val hasVideo = itemsToShare.any { it.mediaType == MediaType.VIDEO }
+            val hasImage = itemsToShare.any { it.mediaType == MediaType.IMAGE }
+            val mime = when {
+                hasVideo && !hasImage -> "video/*"
+                hasImage && !hasVideo -> "image/*"
+                else -> "*/*"
+            }
+            Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                type = mime
+                putParcelableArrayListExtra(
+                    Intent.EXTRA_STREAM,
+                    ArrayList(itemsToShare.map { it.uri })
+                )
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        }
+        val chooser = Intent.createChooser(intent, "Share via")
+        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(chooser)
+    } catch (e: Exception) {
+        Log.e("ImageGallery", "Error launching share sheet", e)
+    }
+}
+
+/**
+ * Formats duration in milliseconds to M:SS representation.
+ */
+private fun formatDuration(durationMs: Long): String {
+    val totalSeconds = (durationMs / 1000).coerceAtLeast(0)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return String.format(Locale.US, "%d:%02d", minutes, seconds)
+}
+
+/**
+ * Formats timestamp to readable date string.
+ */
+private fun formatDate(timestamp: Long): String {
+    return try {
+        val sdf = SimpleDateFormat("MMM d, yyyy · h:mm a", Locale.getDefault())
+        sdf.format(Date(timestamp))
+    } catch (e: Exception) {
+        ""
+    }
+}
+
+/**
+ * Queries device MediaStore for images and videos.
+ */
+private fun queryAllMedia(context: Context): List<GalleryItem> {
+    val result = mutableListOf<GalleryItem>()
+    val contentResolver = context.contentResolver
+
+    // 1. Query Images
+    try {
+        val imageProjection = arrayOf(
+            MediaStore.Images.Media._ID,
+            MediaStore.Images.Media.DISPLAY_NAME,
+            MediaStore.Images.Media.DATE_TAKEN,
+            MediaStore.Images.Media.MIME_TYPE,
+            MediaStore.Images.Media.SIZE
+        )
+        contentResolver.query(
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            projection,
-            selection,
-            selectionArgs,
-            sortOrder
+            imageProjection,
+            null,
+            null,
+            "${MediaStore.Images.Media.DATE_TAKEN} DESC"
         )?.use { cursor ->
-            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
-            val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
-            val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
+            val idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
+            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
+            val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
+            val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.MIME_TYPE)
+            val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
 
             while (cursor.moveToNext()) {
-                val id = cursor.getLong(idColumn)
-                val name = cursor.getString(nameColumn) ?: "RIZZ_PHOTO.JPG"
-                val date = cursor.getLong(dateColumn)
-                val contentUri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+                val id = cursor.getLong(idCol)
+                val name = cursor.getString(nameCol) ?: "IMAGE_$id.JPG"
+                val date = cursor.getLong(dateCol)
+                val mime = cursor.getString(mimeCol) ?: "image/jpeg"
+                val size = cursor.getLong(sizeCol)
+                val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
 
-                items.add(
-                    FilmFrameItem(
+                val isCamera = name.contains("RIZZ", ignoreCase = true) ||
+                        name.contains("IMG", ignoreCase = true) ||
+                        name.contains("DCIM", ignoreCase = true)
+
+                val mediaType = if (mime.startsWith("image/")) {
+                    MediaType.IMAGE
+                } else {
+                    MediaType.OTHER
+                }
+
+                result.add(
+                    GalleryItem(
                         id = id,
-                        uri = contentUri,
+                        uri = uri,
+                        displayName = name,
                         dateTaken = date,
-                        displayName = name
+                        mediaType = mediaType,
+                        mimeType = mime,
+                        sizeBytes = size,
+                        isCameraPhoto = isCamera
                     )
                 )
             }
         }
     } catch (e: Exception) {
-        e.printStackTrace()
+        Log.w("ImageGallery", "Failed querying images", e)
     }
 
-    return items
+    // 2. Query Videos
+    try {
+        val videoProjection = arrayOf(
+            MediaStore.Video.Media._ID,
+            MediaStore.Video.Media.DISPLAY_NAME,
+            MediaStore.Video.Media.DATE_TAKEN,
+            MediaStore.Video.Media.MIME_TYPE,
+            MediaStore.Video.Media.DURATION,
+            MediaStore.Video.Media.SIZE
+        )
+        contentResolver.query(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+            videoProjection,
+            null,
+            null,
+            "${MediaStore.Video.Media.DATE_TAKEN} DESC"
+        )?.use { cursor ->
+            val idCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
+            val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_TAKEN)
+            val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.MIME_TYPE)
+            val durCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
+            val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
+
+            while (cursor.moveToNext()) {
+                val id = cursor.getLong(idCol)
+                val name = cursor.getString(nameCol) ?: "VIDEO_$id.MP4"
+                val date = cursor.getLong(dateCol)
+                val mime = cursor.getString(mimeCol) ?: "video/mp4"
+                val dur = cursor.getLong(durCol)
+                val size = cursor.getLong(sizeCol)
+                val uri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
+
+                result.add(
+                    GalleryItem(
+                        id = id + 100_000_000L,
+                        uri = uri,
+                        displayName = name,
+                        dateTaken = date,
+                        mediaType = MediaType.VIDEO,
+                        mimeType = mime,
+                        durationMs = dur,
+                        sizeBytes = size,
+                        isCameraPhoto = true
+                    )
+                )
+            }
+        }
+    } catch (e: Exception) {
+        Log.w("ImageGallery", "Failed querying videos", e)
+    }
+
+    return result.sortedByDescending { it.dateTaken }
 }

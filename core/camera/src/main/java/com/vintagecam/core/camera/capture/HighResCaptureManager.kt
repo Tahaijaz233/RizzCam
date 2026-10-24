@@ -127,6 +127,7 @@ class HighResCaptureManager(
         }
 
         Log.i(TAG, "Capture and GL grading complete: ${filteredBitmap.width}x${filteredBitmap.height}")
+
         CapturedPhotoResult(
             bitmap = filteredBitmap,
             exifMetadata = exifMetadata
@@ -270,12 +271,7 @@ class HighResCaptureManager(
                 val glBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                 glBitmap.copyPixelsFromBuffer(pixelBuffer)
 
-                val flipMatrix = Matrix().apply { postScale(1.0f, -1.0f) }
-                val upright = Bitmap.createBitmap(glBitmap, 0, 0, width, height, flipMatrix, true)
-                if (upright != glBitmap) {
-                    glBitmap.recycle()
-                }
-                upright
+                glBitmap
             }
         } finally {
             // Clean up all GPU resources deterministically

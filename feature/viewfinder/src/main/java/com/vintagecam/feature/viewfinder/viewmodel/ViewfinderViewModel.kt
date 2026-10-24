@@ -641,7 +641,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
         val ev = _state.value.evCompensation
         val captureResult = executeCaptureAndFilter(imageCapture, activePreset, isFront, ev)
 
-        val targetAspect = _state.value.activeCameraModel.aspectRatio
+        val targetAspect = AspectRatioProfile.RATIO_1_1
         val focalLengthMm = _state.value.focalLengthMm
         val croppedBitmap = cropToFramingGeometry(
             bitmap = captureResult.bitmap,
@@ -751,7 +751,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
                     )
                 }
 
-                val targetAspect = _state.value.activeCameraModel.aspectRatio
+                val targetAspect = AspectRatioProfile.RATIO_1_1
                 val croppedBitmap = FramingGeometryHelper.cropBitmapToFraming(
                     bitmap = gradedBitmap,
                     aspectRatio = targetAspect,
