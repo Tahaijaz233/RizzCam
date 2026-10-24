@@ -25,6 +25,9 @@ import com.vintagecam.core.camera.export.MediaStoreExporter
 import com.vintagecam.core.camera.model.FlashMode
 import com.vintagecam.core.camera.model.FocusMeteringState
 import com.vintagecam.core.camera.model.LensFacing
+import com.vintagecam.core.camera.timestamp.RetroTimestampRenderer
+import com.vintagecam.core.camera.timestamp.TimestampFormat
+import com.vintagecam.core.camera.timestamp.TimestampStyle
 import com.vintagecam.core.camera.video.RecordingState
 import com.vintagecam.core.camera.video.RetroVideoFrameRateMode
 import com.vintagecam.core.camera.video.RetroVideoRecorder
@@ -105,8 +108,31 @@ class ViewfinderViewModel @JvmOverloads constructor(
     private var activeLifecycleOwner: LifecycleOwner? = null
     private var activeSurfaceProvider: Preview.SurfaceProvider? = null
     private var timerJob: Job? = null
+    private val prefs = application.getSharedPreferences("rizzcam_prefs", Context.MODE_PRIVATE)
 
     init {
+        val savedDateStamp = prefs.getBoolean("date_stamp_enabled", false)
+        val savedStyleName = prefs.getString("date_stamp_style", TimestampStyle.AUTO.name) ?: TimestampStyle.AUTO.name
+        val savedFormatName = prefs.getString("date_stamp_format", TimestampFormat.YEAR_MONTH_DAY.name) ?: TimestampFormat.YEAR_MONTH_DAY.name
+        val savedGrid = prefs.getBoolean("grid_enabled", true)
+        val savedSound = prefs.getBoolean("sound_enabled", true)
+        val savedHaptics = prefs.getBoolean("haptics_enabled", true)
+        val savedSaveOriginal = prefs.getBoolean("save_original_enabled", false)
+
+        val resolvedStyle = try { TimestampStyle.valueOf(savedStyleName) } catch (_: Exception) { TimestampStyle.AUTO }
+        val resolvedFormat = try { TimestampFormat.valueOf(savedFormatName) } catch (_: Exception) { TimestampFormat.YEAR_MONTH_DAY }
+
+        _state.update {
+            it.copy(
+                dateStampEnabled = savedDateStamp,
+                dateStampStyle = resolvedStyle,
+                dateStampFormat = resolvedFormat,
+                gridEnabled = savedGrid,
+                soundEnabled = savedSound,
+                hapticsEnabled = savedHaptics,
+                saveOriginalEnabled = savedSaveOriginal
+            )
+        }
         loadPresets()
         observeCameraState()
         observeVideoRecorderState()
@@ -404,7 +430,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
     }
 
     /**
-     * Cycles camera aspect ratio between 3:2, 4:3, 1:1, 6:7, 16:9.
+     * Cycles camera aspect ratio between 3:2, 4:3, 1:1, 6:7, 9:16 (Story), 16:9.
      */
     fun cycleAspectRatio() {
         haptics.tick()
@@ -413,14 +439,22 @@ class ViewfinderViewModel @JvmOverloads constructor(
             AspectRatioProfile.RATIO_3_2 -> AspectRatioProfile.RATIO_4_3
             AspectRatioProfile.RATIO_4_3 -> AspectRatioProfile.RATIO_1_1
             AspectRatioProfile.RATIO_1_1 -> AspectRatioProfile.RATIO_6_7
-            AspectRatioProfile.RATIO_6_7 -> AspectRatioProfile.RATIO_16_9
+            AspectRatioProfile.RATIO_6_7 -> AspectRatioProfile.RATIO_9_16
+            AspectRatioProfile.RATIO_9_16 -> AspectRatioProfile.RATIO_16_9
             AspectRatioProfile.RATIO_16_9 -> AspectRatioProfile.RATIO_3_2
-            AspectRatioProfile.RATIO_9_16 -> AspectRatioProfile.RATIO_3_2
             AspectRatioProfile.HALF_FRAME_DIPTYCH -> AspectRatioProfile.RATIO_4_3
         }
+        setAspectRatio(nextAspect)
+    }
+
+    /**
+     * Sets the active aspect ratio for both camera model and active filter preset.
+     */
+    fun setAspectRatio(aspectRatio: AspectRatioProfile) {
         _state.update { current ->
             current.copy(
-                activeCameraModel = current.activeCameraModel.copy(aspectRatio = nextAspect)
+                activeCameraModel = current.activeCameraModel.copy(aspectRatio = aspectRatio),
+                activePreset = current.activePreset?.copy(aspectRatio = aspectRatio)
             )
         }
     }
@@ -464,26 +498,43 @@ class ViewfinderViewModel @JvmOverloads constructor(
 
     fun setGridEnabled(enabled: Boolean) {
         haptics.tick()
+        prefs.edit().putBoolean("grid_enabled", enabled).apply()
         _state.update { it.copy(gridEnabled = enabled) }
     }
 
     fun setDateStampEnabled(enabled: Boolean) {
         haptics.tick()
+        prefs.edit().putBoolean("date_stamp_enabled", enabled).apply()
         _state.update { it.copy(dateStampEnabled = enabled) }
+    }
+
+    fun setDateStampStyle(style: TimestampStyle) {
+        haptics.tick()
+        prefs.edit().putString("date_stamp_style", style.name).apply()
+        _state.update { it.copy(dateStampStyle = style) }
+    }
+
+    fun setDateStampFormat(format: TimestampFormat) {
+        haptics.tick()
+        prefs.edit().putString("date_stamp_format", format.name).apply()
+        _state.update { it.copy(dateStampFormat = format) }
     }
 
     fun setSoundEnabled(enabled: Boolean) {
         haptics.tick()
+        prefs.edit().putBoolean("sound_enabled", enabled).apply()
         _state.update { it.copy(soundEnabled = enabled) }
     }
 
     fun setHapticsEnabled(enabled: Boolean) {
         haptics.tick()
+        prefs.edit().putBoolean("haptics_enabled", enabled).apply()
         _state.update { it.copy(hapticsEnabled = enabled) }
     }
 
     fun setSaveOriginalEnabled(enabled: Boolean) {
         haptics.tick()
+        prefs.edit().putBoolean("save_original_enabled", enabled).apply()
         _state.update { it.copy(saveOriginalEnabled = enabled) }
     }
 
@@ -697,8 +748,20 @@ class ViewfinderViewModel @JvmOverloads constructor(
                 _state.update { it.copy(diptychStep = DiptychCaptureStep.STITCHING) }
 
                 try {
+                    val shouldStamp = _state.value.dateStampEnabled || activePreset.compositing.enableDateStamp
+                    val finalComposite = if (shouldStamp) {
+                        RetroTimestampRenderer.applyTimestamp(
+                            sourceBitmap = diptychResult.compositeBitmap,
+                            style = _state.value.dateStampStyle,
+                            format = _state.value.dateStampFormat,
+                            isVideoPreset = false
+                        )
+                    } else {
+                        diptychResult.compositeBitmap
+                    }
+
                     val exportResult = mediaStoreExporter.exportPhoto(
-                        bitmap = diptychResult.compositeBitmap,
+                        bitmap = finalComposite,
                         preset = activePreset,
                         metadata = captureResult.exifMetadata
                     )
@@ -737,7 +800,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
         val ev = _state.value.evCompensation
         val captureResult = executeCaptureAndFilter(imageCapture, activePreset, isFront, ev)
 
-        val targetAspect = AspectRatioProfile.RATIO_1_1
+        val targetAspect = _state.value.activeCameraModel.aspectRatio
         val focalLengthMm = _state.value.focalLengthMm
         val croppedBitmap = cropToFramingGeometry(
             bitmap = captureResult.bitmap,
@@ -745,9 +808,22 @@ class ViewfinderViewModel @JvmOverloads constructor(
             focalLengthMm = focalLengthMm
         )
 
+        val shouldStamp = _state.value.dateStampEnabled || activePreset.compositing.enableDateStamp
+        val finalBitmap = if (shouldStamp) {
+            val isVideo = activePreset.category == com.vintagecam.domain.presets.model.PresetCategory.VIDEO || _state.value.captureMode == CaptureMode.VIDEO
+            RetroTimestampRenderer.applyTimestamp(
+                sourceBitmap = croppedBitmap,
+                style = _state.value.dateStampStyle,
+                format = _state.value.dateStampFormat,
+                isVideoPreset = isVideo
+            )
+        } else {
+            croppedBitmap
+        }
+
         try {
             val exportResult = mediaStoreExporter.exportPhoto(
-                bitmap = croppedBitmap,
+                bitmap = finalBitmap,
                 preset = activePreset,
                 metadata = captureResult.exifMetadata
             )
@@ -847,12 +923,25 @@ class ViewfinderViewModel @JvmOverloads constructor(
                     )
                 }
 
-                val targetAspect = AspectRatioProfile.RATIO_1_1
+                val targetAspect = _state.value.activeCameraModel.aspectRatio
                 val croppedBitmap = FramingGeometryHelper.cropBitmapToFraming(
                     bitmap = gradedBitmap,
                     aspectRatio = targetAspect,
                     focalLengthMm = _state.value.focalLengthMm
                 )
+
+                val shouldStamp = _state.value.dateStampEnabled || activePreset.compositing.enableDateStamp
+                val finalBitmap = if (shouldStamp) {
+                    val isVideo = activePreset.category == com.vintagecam.domain.presets.model.PresetCategory.VIDEO
+                    RetroTimestampRenderer.applyTimestamp(
+                        sourceBitmap = croppedBitmap,
+                        style = _state.value.dateStampStyle,
+                        format = _state.value.dateStampFormat,
+                        isVideoPreset = isVideo
+                    )
+                } else {
+                    croppedBitmap
+                }
 
                 try {
                     val defaultExif = com.vintagecam.core.camera.exif.CapturedExifMetadata(
@@ -864,7 +953,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
                     )
 
                     val exportResult = mediaStoreExporter.exportPhoto(
-                        bitmap = croppedBitmap,
+                        bitmap = finalBitmap,
                         preset = activePreset,
                         metadata = defaultExif
                     )

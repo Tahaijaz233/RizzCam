@@ -34,6 +34,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vintagecam.core.camera.timestamp.TimestampFormat
+import com.vintagecam.core.camera.timestamp.TimestampStyle
+import com.vintagecam.domain.presets.model.AspectRatioProfile
 import com.vintagecam.feature.viewfinder.haptics.RetroHapticsEngine
 
 /**
@@ -46,6 +49,12 @@ fun ViewfinderSettingsSheet(
     onGridToggle: (Boolean) -> Unit,
     dateStampEnabled: Boolean,
     onDateStampToggle: (Boolean) -> Unit,
+    dateStampStyle: TimestampStyle = TimestampStyle.AUTO,
+    onDateStampStyleSelect: (TimestampStyle) -> Unit = {},
+    dateStampFormat: TimestampFormat = TimestampFormat.YEAR_MONTH_DAY,
+    onDateStampFormatSelect: (TimestampFormat) -> Unit = {},
+    activeAspectRatio: AspectRatioProfile = AspectRatioProfile.RATIO_3_2,
+    onAspectRatioSelect: (AspectRatioProfile) -> Unit = {},
     soundEnabled: Boolean,
     onSoundToggle: (Boolean) -> Unit,
     hapticsEnabled: Boolean,
@@ -138,6 +147,91 @@ fun ViewfinderSettingsSheet(
                     }
                 )
 
+                if (dateStampEnabled) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "TIMESTAMP STYLE",
+                        color = Color(0xFFF59E0B),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            Pair(TimestampStyle.AUTO, "Auto"),
+                            Pair(TimestampStyle.DIGICAM_ORANGE, "Orange Quartz"),
+                            Pair(TimestampStyle.CAMCORDER_GREEN, "VHS Green"),
+                            Pair(TimestampStyle.RETRO_GOLD, "Gold")
+                        ).forEach { (style, label) ->
+                            val isSelected = (dateStampStyle == style)
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) Color(0xFFF59E0B) else Color(0xFF2A2A2E))
+                                    .clickable {
+                                        haptics.tick()
+                                        onDateStampStyleSelect(style)
+                                    }
+                                    .padding(vertical = 7.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (isSelected) Color.Black else Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "DATE FORMAT",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            Pair(TimestampFormat.YEAR_MONTH_DAY, "'YY MM DD"),
+                            Pair(TimestampFormat.MONTH_DAY_YEAR, "MM DD 'YY"),
+                            Pair(TimestampFormat.DATE_WITH_TIME, "With Time")
+                        ).forEach { (fmt, label) ->
+                            val isSelected = (dateStampFormat == fmt)
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) Color(0xFF3B82F6) else Color(0xFF2A2A2E))
+                                    .clickable {
+                                        haptics.tick()
+                                        onDateStampFormatSelect(fmt)
+                                    }
+                                    .padding(vertical = 7.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (isSelected) Color.White else Color(0xFFCCCCCC),
+                                    fontSize = 10.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(6.dp))
 
                 SettingsToggleRow(
@@ -221,6 +315,57 @@ fun ViewfinderSettingsSheet(
                                 text = label,
                                 color = if (isSelected) Color.Black else Color.White,
                                 fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Section 3: Aspect Ratio / Story Mode
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFF1E1E22))
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "ASPECT RATIO & STORY FRAMING",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(
+                        Pair(AspectRatioProfile.RATIO_9_16, "9:16 Story"),
+                        Pair(AspectRatioProfile.RATIO_3_2, "3:2 Film"),
+                        Pair(AspectRatioProfile.RATIO_4_3, "4:3 Digicam"),
+                        Pair(AspectRatioProfile.RATIO_1_1, "1:1 Square")
+                    ).forEach { (ratio, label) ->
+                        val isSelected = (activeAspectRatio == ratio)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSelected) Color(0xFFF59E0B) else Color(0xFF26262A))
+                                .clickable {
+                                    haptics.tick()
+                                    onAspectRatioSelect(ratio)
+                                }
+                                .padding(vertical = 9.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                color = if (isSelected) Color.Black else Color.White,
+                                fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
                         }

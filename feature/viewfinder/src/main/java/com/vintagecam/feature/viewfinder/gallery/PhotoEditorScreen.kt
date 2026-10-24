@@ -100,6 +100,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vintagecam.core.camera.timestamp.RetroTimestampRenderer
+import com.vintagecam.core.camera.timestamp.TimestampFormat
+import com.vintagecam.core.camera.timestamp.TimestampStyle
 import com.vintagecam.domain.presets.model.AspectRatioProfile
 import com.vintagecam.feature.viewfinder.haptics.RetroHapticsEngine
 import com.vintagecam.feature.viewfinder.model.CameraModel
@@ -212,6 +215,8 @@ fun PhotoEditorScreen(
     var grainIntensity by remember { mutableFloatStateOf(0.0f) }  // 0.0f .. 1.0f
     var selectedBorder by remember { mutableStateOf(BorderOption.NONE) }
     var selectedLeak by remember { mutableStateOf(LeakOption.NONE) }
+    var isDateStampEnabled by remember { mutableStateOf(false) }
+    var selectedStampStyle by remember { mutableStateOf(TimestampStyle.DIGICAM_ORANGE) }
 
     // Load original bitmap
     LaunchedEffect(item.uri) {
@@ -335,7 +340,9 @@ fun PhotoEditorScreen(
                                     cropRatio = selectedCropRatio.profile,
                                     preset = selectedPreset,
                                     borderAsset = selectedBorder.assetPath,
-                                    leakAsset = selectedLeak.assetPath
+                                    leakAsset = selectedLeak.assetPath,
+                                    isDateStampEnabled = isDateStampEnabled,
+                                    dateStampStyle = selectedStampStyle
                                 )
                                 isSaving = false
                                 if (savedUri != null) {
@@ -462,6 +469,48 @@ fun PhotoEditorScreen(
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
+                            }
+                        }
+
+                        // Live Date Stamp Preview Overlay
+                        if (!isComparing && isDateStampEnabled) {
+                            val stampText = remember(selectedStampStyle) {
+                                RetroTimestampRenderer.formatTimestamp(
+                                    date = java.util.Date(),
+                                    format = if (selectedStampStyle == TimestampStyle.CAMCORDER_GREEN) {
+                                        TimestampFormat.CAMCORDER_OSD
+                                    } else {
+                                        TimestampFormat.YEAR_MONTH_DAY
+                                    }
+                                )
+                            }
+                            val stampColor = when (selectedStampStyle) {
+                                TimestampStyle.CAMCORDER_GREEN -> Color(0xFF22C55E)
+                                TimestampStyle.RETRO_GOLD -> Color(0xFFFFB300)
+                                else -> Color(0xFFFF9500)
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(14.dp)
+                            ) {
+                                Text(
+                                    text = stampText,
+                                    color = Color.Black,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                    letterSpacing = 1.sp,
+                                    modifier = Modifier.offset(x = 1.dp, y = 1.dp)
+                                )
+                                Text(
+                                    text = stampText,
+                                    color = stampColor,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                    letterSpacing = 1.sp
+                                )
                             }
                         }
                     }
@@ -603,6 +652,16 @@ fun PhotoEditorScreen(
                                 onLeakSelect = {
                                     haptics.tick()
                                     selectedLeak = it
+                                },
+                                isDateStampEnabled = isDateStampEnabled,
+                                onDateStampToggle = {
+                                    haptics.tick()
+                                    isDateStampEnabled = it
+                                },
+                                selectedStampStyle = selectedStampStyle,
+                                onStampStyleSelect = {
+                                    haptics.tick()
+                                    selectedStampStyle = it
                                 }
                             )
                         }
@@ -927,7 +986,7 @@ private fun PresetControls(
 }
 
 /**
- * Advanced vintage film effects (Grain, Borders, Light Leaks).
+ * Advanced vintage film effects (Grain, Borders, Light Leaks, Retro Date Stamp).
  */
 @Composable
 private fun VintageControls(
@@ -936,12 +995,62 @@ private fun VintageControls(
     selectedBorder: BorderOption,
     onBorderSelect: (BorderOption) -> Unit,
     selectedLeak: LeakOption,
-    onLeakSelect: (LeakOption) -> Unit
+    onLeakSelect: (LeakOption) -> Unit,
+    isDateStampEnabled: Boolean,
+    onDateStampToggle: (Boolean) -> Unit,
+    selectedStampStyle: TimestampStyle,
+    onStampStyleSelect: (TimestampStyle) -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
+        // Retro Date Stamp Controls Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (isDateStampEnabled) Color(0xFFFF9500) else Color(0xFF222226),
+                contentColor = if (isDateStampEnabled) Color.Black else Color.White,
+                modifier = Modifier.clickable { onDateStampToggle(!isDateStampEnabled) }
+            ) {
+                Text(
+                    text = if (isDateStampEnabled) "📅 Date Stamp ON" else "📅 Date Stamp OFF",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
+
+            if (isDateStampEnabled) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(
+                        Pair(TimestampStyle.DIGICAM_ORANGE, "Orange"),
+                        Pair(TimestampStyle.CAMCORDER_GREEN, "VHS"),
+                        Pair(TimestampStyle.RETRO_GOLD, "Gold")
+                    ).forEach { (style, label) ->
+                        val isSelected = (selectedStampStyle == style)
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isSelected) Color(0xFFFFD54F) else Color(0xFF2A2A30),
+                            contentColor = if (isSelected) Color.Black else Color.White,
+                            modifier = Modifier.clickable { onStampStyleSelect(style) }
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 10.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // Grain slider
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -950,9 +1059,9 @@ private fun VintageControls(
             Text(
                 text = "Film Grain (${(grainIntensity * 100).roundToInt()}%)",
                 color = Color.White,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.width(130.dp)
+                modifier = Modifier.width(120.dp)
             )
             Slider(
                 value = grainIntensity,
@@ -967,7 +1076,7 @@ private fun VintageControls(
             )
         }
 
-        // Frame Border Selection
+        // Frame Border & Leak Row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -990,15 +1099,7 @@ private fun VintageControls(
                     )
                 }
             }
-        }
 
-        // Light Leak Selection
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
             LeakOption.entries.forEach { leak ->
                 val isSelected = leak == selectedLeak
                 Surface(
@@ -1094,7 +1195,9 @@ private suspend fun processAndSaveEditedPhoto(
     cropRatio: AspectRatioProfile?,
     preset: CameraModel?,
     borderAsset: String?,
-    leakAsset: String?
+    leakAsset: String?,
+    isDateStampEnabled: Boolean = false,
+    dateStampStyle: TimestampStyle = TimestampStyle.DIGICAM_ORANGE
 ): Uri? = withContext(Dispatchers.IO) {
     try {
         // 1. Geometric transforms (Rotate & Flip)
@@ -1231,7 +1334,17 @@ private suspend fun processAndSaveEditedPhoto(
             }
         }
 
-        // 8. Commit atomically to MediaStore (Pictures/RizzCam)
+        // 8. Retro Timestamp
+        if (isDateStampEnabled) {
+            RetroTimestampRenderer.applyTimestamp(
+                sourceBitmap = outputBitmap,
+                style = dateStampStyle,
+                format = TimestampFormat.YEAR_MONTH_DAY,
+                isVideoPreset = false
+            )
+        }
+
+        // 9. Commit atomically to MediaStore (Pictures/RizzCam)
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val fileName = "RIZZCAM_EDIT_$timestamp.jpg"
 

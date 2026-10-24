@@ -160,6 +160,8 @@ fun ViewfinderScreen(
                 // 1. Top Bar: Minimal with Settings (...) Actuator & Video Status
                 // -------------------------------------------------------------
                 DazzTopBar(
+                    activeAspectRatio = state.activeCameraModel.aspectRatio,
+                    onAspectRatioClick = { viewModel.cycleAspectRatio() },
                     onSettingsClick = { viewModel.openSettings() },
                     isVideoMode = state.captureMode == CaptureMode.VIDEO,
                     isRecording = state.isRecordingVideo,
@@ -207,6 +209,51 @@ fun ViewfinderScreen(
                             onFocusTap = { x, y, w, h -> viewModel.onFocusTap(x, y, w, h) },
                             modifier = Modifier.fillMaxSize()
                         )
+
+                        // Live Retro Timestamp HUD in Viewfinder
+                        val isStampActive = state.dateStampEnabled || (state.activePreset?.compositing?.enableDateStamp == true)
+                        if (isStampActive) {
+                            val isVideo = state.captureMode == CaptureMode.VIDEO || state.activePreset?.category == com.vintagecam.domain.presets.model.PresetCategory.VIDEO
+                            val resolvedStyle = com.vintagecam.core.camera.timestamp.RetroTimestampRenderer.resolveStyle(state.dateStampStyle, isVideo)
+                            val stampText = remember(state.dateStampFormat, resolvedStyle) {
+                                com.vintagecam.core.camera.timestamp.RetroTimestampRenderer.formatTimestamp(
+                                    date = java.util.Date(),
+                                    format = if (resolvedStyle == com.vintagecam.core.camera.timestamp.TimestampStyle.CAMCORDER_GREEN) {
+                                        com.vintagecam.core.camera.timestamp.TimestampFormat.CAMCORDER_OSD
+                                    } else {
+                                        state.dateStampFormat
+                                    }
+                                )
+                            }
+                            val textColor = if (resolvedStyle == com.vintagecam.core.camera.timestamp.TimestampStyle.CAMCORDER_GREEN) {
+                                Color(0xFF22C55E)
+                            } else {
+                                Color(0xFFFF9500)
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(end = 24.dp, bottom = 48.dp)
+                            ) {
+                                Text(
+                                    text = stampText,
+                                    color = Color.Black,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    letterSpacing = 1.sp,
+                                    modifier = Modifier.offset(x = 1.dp, y = 1.dp)
+                                )
+                                Text(
+                                    text = stampText,
+                                    color = textColor,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    letterSpacing = 1.sp
+                                )
+                            }
+                        }
                     }
 
                     // Shutter curtain transient blackout overlay
@@ -434,6 +481,12 @@ fun ViewfinderScreen(
                     onGridToggle = { viewModel.setGridEnabled(it) },
                     dateStampEnabled = state.dateStampEnabled,
                     onDateStampToggle = { viewModel.setDateStampEnabled(it) },
+                    dateStampStyle = state.dateStampStyle,
+                    onDateStampStyleSelect = { viewModel.setDateStampStyle(it) },
+                    dateStampFormat = state.dateStampFormat,
+                    onDateStampFormatSelect = { viewModel.setDateStampFormat(it) },
+                    activeAspectRatio = state.activeCameraModel.aspectRatio,
+                    onAspectRatioSelect = { viewModel.setAspectRatio(it) },
                     soundEnabled = state.soundEnabled,
                     onSoundToggle = { viewModel.setSoundEnabled(it) },
                     hapticsEnabled = state.hapticsEnabled,
@@ -469,10 +522,12 @@ fun ViewfinderScreen(
 }
 
 /**
- * Clean top bar with three-dots menu actuator and video recording indicator.
+ * Clean top bar with aspect ratio toggle, three-dots menu actuator, and video recording indicator.
  */
 @Composable
 private fun DazzTopBar(
+    activeAspectRatio: AspectRatioProfile,
+    onAspectRatioClick: () -> Unit,
     onSettingsClick: () -> Unit,
     isVideoMode: Boolean = false,
     isRecording: Boolean = false,
@@ -523,16 +578,44 @@ private fun DazzTopBar(
             Spacer(modifier = Modifier.width(1.dp))
         }
 
-        IconButton(
-            onClick = onSettingsClick,
-            modifier = Modifier.size(36.dp)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.MoreHoriz,
-                contentDescription = "Settings",
-                tint = Color.White,
-                modifier = Modifier.size(26.dp)
-            )
+            val ratioLabel = when (activeAspectRatio) {
+                AspectRatioProfile.RATIO_9_16 -> "9:16 STORY"
+                AspectRatioProfile.RATIO_16_9 -> "16:9"
+                AspectRatioProfile.RATIO_4_3 -> "4:3"
+                AspectRatioProfile.RATIO_3_2 -> "3:2"
+                AspectRatioProfile.RATIO_1_1 -> "1:1"
+                AspectRatioProfile.RATIO_6_7 -> "6:7"
+                AspectRatioProfile.HALF_FRAME_DIPTYCH -> "1/2"
+            }
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = if (activeAspectRatio == AspectRatioProfile.RATIO_9_16 || activeAspectRatio == AspectRatioProfile.RATIO_16_9) Color(0x99F59E0B) else Color(0x66222226),
+                modifier = Modifier.clickable { onAspectRatioClick() }
+            ) {
+                Text(
+                    text = ratioLabel,
+                    color = if (activeAspectRatio == AspectRatioProfile.RATIO_9_16 || activeAspectRatio == AspectRatioProfile.RATIO_16_9) Color.Black else Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                )
+            }
+
+            IconButton(
+                onClick = onSettingsClick,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MoreHoriz,
+                    contentDescription = "Settings",
+                    tint = Color.White,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
         }
     }
 }
