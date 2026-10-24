@@ -37,7 +37,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -54,7 +53,6 @@ import com.vintagecam.feature.viewfinder.ui.components.CameraModelGraphic
  * Quick-selection bottom drawer matching the Dazz Cam UI references.
  *
  * Components:
- * - Gradient Pro banner: "RizzCam Pro - Unlock all Cameras & Accessories"
  * - Action buttons: [SAMPLE] pill button, hamburger menu (opens full catalog), flame icon
  * - Video cameras horizontal scroll row
  * - Photo cameras horizontal scroll row
@@ -91,81 +89,7 @@ fun DazzCameraDrawer(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // -----------------------------------------------------------------
-            // 1. Dazz Pro / RizzCam Pro Gradient Banner
-            // -----------------------------------------------------------------
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                Color(0xFF0D6EFD), // Electric Blue
-                                Color(0xFF7B2CBF), // Deep Purple
-                                Color(0xFFE63946)  // Vibrant Crimson
-                            )
-                        )
-                    )
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        haptics.tick()
-                    }
-                    .padding(horizontal = 16.dp, vertical = 14.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Swirl icon box
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0x33FFFFFF)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "⚡",
-                                fontSize = 18.sp
-                            )
-                        }
-
-                        Column {
-                            Text(
-                                text = "RizzCam Pro",
-                                color = Color.White,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Unlock all Cameras & Accessories.",
-                                color = Color.White.copy(alpha = 0.85f),
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-
-                    Text(
-                        text = "›",
-                        color = Color.White.copy(alpha = 0.8f),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Light
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // -----------------------------------------------------------------
-            // 2. Action Buttons Row: [SAMPLE] pill | Hamburger ≡ | Flame 🔥
+            // Action Buttons Row: [SAMPLE] pill | Hamburger ≡ | Flame 🔥
             // -----------------------------------------------------------------
             Row(
                 modifier = Modifier

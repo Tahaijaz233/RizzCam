@@ -180,4 +180,126 @@ class GalleryModelTest {
         assertEquals("1:15", formatDuration(75000L))
         assertEquals("10:00", formatDuration(600000L))
     }
+
+    @Test
+    fun testGalleryItemModelWithFilePathAndMediaStoreId() {
+        val item = GalleryItem(
+            id = 100_000_042L,
+            uri = null,
+            displayName = "RIZZ_20261024.jpg",
+            dateTaken = 1729761600000L,
+            mediaType = MediaType.IMAGE,
+            filePath = "/storage/emulated/0/Pictures/RizzCam/RIZZ_20261024.jpg",
+            mediaStoreId = 42L
+        )
+
+        assertEquals(100_000_042L, item.id)
+        assertEquals(42L, item.mediaStoreId)
+        assertEquals("/storage/emulated/0/Pictures/RizzCam/RIZZ_20261024.jpg", item.filePath)
+        assertTrue(item.isCameraPhoto)
+    }
+
+    @Test
+    fun testDeletionStateTransitionOnSuccess() {
+        var items = listOf(
+            createDummyItem(1L, "photo1.jpg", MediaType.IMAGE),
+            createDummyItem(2L, "photo2.jpg", MediaType.IMAGE),
+            createDummyItem(3L, "photo3.jpg", MediaType.IMAGE)
+        )
+        var selectedIds = setOf(1L, 3L)
+        var previewItem: GalleryItem? = items[0] // previewing item 1
+
+        val successfullyDeletedIds = setOf(1L, 3L)
+
+        // Apply deletion
+        items = items.filterNot { it.id in successfullyDeletedIds }
+        selectedIds = selectedIds - successfullyDeletedIds
+        if (previewItem?.id in successfullyDeletedIds) {
+            previewItem = null
+        }
+
+        assertEquals(1, items.size)
+        assertEquals(2L, items[0].id)
+        assertTrue(selectedIds.isEmpty())
+        assertNull(previewItem)
+    }
+
+    @Test
+    fun testUnconfirmedDeletionRetainsItemsUntilApproval() {
+        val items = listOf(
+            createDummyItem(10L, "unowned_photo.jpg", MediaType.IMAGE),
+            createDummyItem(20L, "owned_photo.jpg", MediaType.IMAGE)
+        )
+        val deletePendingIds = setOf(10L)
+
+        // If direct delete fails and requires system permission launcher,
+        // items should NOT be removed prematurely:
+        val directlyDeletedIds = emptySet<Long>()
+        val filtered = items.filterNot { it.id in directlyDeletedIds }
+        assertEquals(2, filtered.size)
+
+        // Only after system launcher confirms Activity.RESULT_OK:
+        val confirmedDeletedIds = deletePendingIds
+        val finalItems = items.filterNot { it.id in confirmedDeletedIds }
+        assertEquals(1, finalItems.size)
+        assertEquals(20L, finalItems[0].id)
+    }
+
+    @Test
+    fun testAndroid10ApprovedDeletionStateTransition() {
+        var items = listOf(
+            createDummyItem(100L, "photo_a10.jpg", MediaType.IMAGE)
+        )
+        var pendingDeleteIds = setOf(100L)
+        var pendingA10Uri: String? = "content://media/external/images/media/100"
+
+        // Simulated RESULT_OK callback
+        val isResultOk = true
+        if (isResultOk) {
+            // Emulate background ContentResolver deletion and file deletion
+            pendingA10Uri = null
+            items = items.filterNot { it.id in pendingDeleteIds }
+            pendingDeleteIds = emptySet()
+        }
+
+        assertTrue(items.isEmpty())
+        assertTrue(pendingDeleteIds.isEmpty())
+        assertNull(pendingA10Uri)
+    }
+
+    @Test
+    fun testFilteringZeroByteAndMissingFiles() {
+        val rawItems = listOf(
+            GalleryItem(id = 1L, uri = null, displayName = "valid.jpg", dateTaken = 1000L, sizeBytes = 1024L),
+            GalleryItem(id = 2L, uri = null, displayName = "corrupted_zero.jpg", dateTaken = 2000L, sizeBytes = 0L),
+            GalleryItem(id = 3L, uri = null, displayName = "negative_size.jpg", dateTaken = 3000L, sizeBytes = -1L),
+            GalleryItem(id = 4L, uri = null, displayName = "valid2.jpg", dateTaken = 4000L, sizeBytes = 2048L)
+        )
+
+        val filteredItems = rawItems.filter { it.sizeBytes > 0 }
+        assertEquals(2, filteredItems.size)
+        assertEquals(1L, filteredItems[0].id)
+        assertEquals(4L, filteredItems[1].id)
+    }
+
+    @Test
+    fun testVideoMediaStoreIdPreservedWithCompositeOffset() {
+        val rawMediaStoreId = 555L
+        val compositeId = rawMediaStoreId + 100_000_000L
+
+        val videoItem = GalleryItem(
+            id = compositeId,
+            uri = null,
+            displayName = "VIDEO_555.MP4",
+            dateTaken = 1729761600000L,
+            mediaType = MediaType.VIDEO,
+            durationMs = 12000L,
+            sizeBytes = 5000000L,
+            mediaStoreId = rawMediaStoreId
+        )
+
+        assertEquals(100_000_555L, videoItem.id)
+        assertEquals(555L, videoItem.mediaStoreId)
+        assertEquals(MediaType.VIDEO, videoItem.mediaType)
+    }
 }

@@ -1,8 +1,11 @@
 package com.vintagecam.feature.viewfinder.gallery
 
+import android.app.Activity
+import android.app.RecoverableSecurityException
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
+import android.content.IntentSender
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -11,6 +14,9 @@ import android.provider.MediaStore
 import android.util.Log
 import android.util.Size
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -102,6 +108,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -133,11 +140,13 @@ data class GalleryItem(
     val uri: Uri? = null,
     val displayName: String,
     val dateTaken: Long,
-    val mediaType: MediaType,
+    val mediaType: MediaType = MediaType.IMAGE,
     val mimeType: String = "",
     val sizeBytes: Long = 0L,
     val durationMs: Long = 0L,
-    val isCameraPhoto: Boolean = true
+    val isCameraPhoto: Boolean = true,
+    val filePath: String? = null,
+    val mediaStoreId: Long = id
 )
 
 /**
@@ -199,6 +208,49 @@ fun FilmRollGalleryScreen(
     var previewItem by remember { mutableStateOf<GalleryItem?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var deletePendingIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var pendingSystemDeleteIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var pendingAndroid10Uri by remember { mutableStateOf<Uri?>(null) }
+
+    val systemDeleteLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val deletedIds = pendingSystemDeleteIds
+            val a10Uri = pendingAndroid10Uri
+
+            // Launch background IO work for Android 10 retry and physical file cleanup
+            coroutineScope.launch(Dispatchers.IO) {
+                if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q && a10Uri != null) {
+                    try {
+                        context.contentResolver.delete(a10Uri, null, null)
+                    } catch (e: Exception) {
+                        Log.w("ImageGallery", "Android 10 post-approval delete failed: $a10Uri", e)
+                    }
+                }
+
+                // Clean up files on disk if accessible
+                items.filter { it.id in deletedIds }.forEach { item ->
+                    item.filePath?.let { path ->
+                        try {
+                            val file = File(path)
+                            if (file.exists()) file.delete()
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
+
+            items = items.filterNot { it.id in deletedIds }
+            selectedIds = selectedIds - deletedIds
+            if (selectedIds.isEmpty()) {
+                isSelectionMode = false
+            }
+            if (previewItem?.id in deletedIds) {
+                previewItem = null
+            }
+        }
+        pendingSystemDeleteIds = emptySet()
+        pendingAndroid10Uri = null
+    }
 
     val gridState = rememberLazyGridState()
     var gridHeightPx by remember { mutableFloatStateOf(1000f) }
@@ -529,29 +581,144 @@ fun FilmRollGalleryScreen(
                 TextButton(
                     onClick = {
                         val idsToDelete = deletePendingIds
+                        showDeleteDialog = false
+                        deletePendingIds = emptySet()
+
                         coroutineScope.launch {
+                            val itemsToDelete = items.filter { it.id in idsToDelete }
+                            val directlyDeletedIds = mutableSetOf<Long>()
+                            val needsPermissionUris = mutableListOf<Uri>()
+                            val needsPermissionIds = mutableSetOf<Long>()
+                            var recoverableIntentSender: IntentSender? = null
+                            var recoverablePendingId: Long? = null
+                            var recoverablePendingUri: Uri? = null
+
                             withContext(Dispatchers.IO) {
-                                for (id in idsToDelete) {
-                                    val item = items.find { it.id == id }
-                                    item?.uri?.let { uri ->
+                                for (item in itemsToDelete) {
+                                    var deleted = false
+
+                                    val primaryUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                        ContentUris.withAppendedId(
+                                            if (item.mediaType == MediaType.VIDEO)
+                                                MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                                            else
+                                                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                                            item.mediaStoreId
+                                        )
+                                    } else null
+
+                                    val standardUri = item.uri
+
+                                    // 1. Try deleting via primary volume URI first (where RizzCam exports photos on Android 10+)
+                                    if (primaryUri != null) {
                                         try {
-                                            context.contentResolver.delete(uri, null, null)
+                                            val rows = context.contentResolver.delete(primaryUri, null, null)
+                                            if (rows > 0) {
+                                                deleted = true
+                                            }
+                                        } catch (e: SecurityException) {
+                                            if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q && e is RecoverableSecurityException) {
+                                                if (recoverableIntentSender == null) {
+                                                    recoverableIntentSender = e.userAction.actionIntent.intentSender
+                                                    recoverablePendingId = item.id
+                                                    recoverablePendingUri = primaryUri
+                                                }
+                                            }
                                         } catch (e: Exception) {
-                                            Log.w("ImageGallery", "Failed to delete item: $uri", e)
+                                            Log.w("ImageGallery", "Failed deleting via primaryUri: $primaryUri", e)
+                                        }
+                                    }
+
+                                    // 2. If not deleted, try deleting via standard/external URI
+                                    if (!deleted && standardUri != null) {
+                                        try {
+                                            val rows = context.contentResolver.delete(standardUri, null, null)
+                                            if (rows > 0) {
+                                                deleted = true
+                                            }
+                                        } catch (e: SecurityException) {
+                                            if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q && e is RecoverableSecurityException) {
+                                                if (recoverableIntentSender == null) {
+                                                    recoverableIntentSender = e.userAction.actionIntent.intentSender
+                                                    recoverablePendingId = item.id
+                                                    recoverablePendingUri = standardUri
+                                                }
+                                            }
+                                        } catch (e: Exception) {
+                                            Log.w("ImageGallery", "Failed deleting via standardUri: $standardUri", e)
+                                        }
+                                    }
+
+                                    // 3. Physical file deletion on disk (cleans up file and triggers scanner cleanup)
+                                    item.filePath?.let { path ->
+                                        try {
+                                            val file = File(path)
+                                            if (file.exists()) {
+                                                val fileDeleted = file.delete()
+                                                if (fileDeleted && !deleted) {
+                                                    // File deleted from disk; try cleaning up MediaStore rows as well
+                                                    try {
+                                                        if (primaryUri != null) context.contentResolver.delete(primaryUri, null, null)
+                                                    } catch (_: Exception) {}
+                                                    try {
+                                                        if (standardUri != null) context.contentResolver.delete(standardUri, null, null)
+                                                    } catch (_: Exception) {}
+                                                    deleted = true
+                                                }
+                                            }
+                                        } catch (e: Exception) {
+                                            Log.w("ImageGallery", "Failed deleting file from disk: $path", e)
+                                        }
+                                    }
+
+                                    if (deleted) {
+                                        directlyDeletedIds.add(item.id)
+                                    } else {
+                                        // Deletion not completed directly: requires system permission dialog
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                            val targetUri = standardUri ?: primaryUri
+                                            if (targetUri != null) {
+                                                needsPermissionUris.add(targetUri)
+                                                needsPermissionIds.add(item.id)
+                                            }
+                                        } else if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
+                                            if (recoverablePendingId != null) {
+                                                needsPermissionIds.add(recoverablePendingId)
+                                            }
                                         }
                                     }
                                 }
                             }
-                            items = items.filterNot { it.id in idsToDelete }
-                            selectedIds = selectedIds - idsToDelete
-                            if (selectedIds.isEmpty()) {
-                                isSelectionMode = false
+
+                            // Remove items that succeeded directly
+                            if (directlyDeletedIds.isNotEmpty()) {
+                                items = items.filterNot { it.id in directlyDeletedIds }
+                                selectedIds = selectedIds - directlyDeletedIds
+                                if (selectedIds.isEmpty()) {
+                                    isSelectionMode = false
+                                }
+                                if (previewItem?.id in directlyDeletedIds) {
+                                    previewItem = null
+                                }
                             }
-                            if (previewItem?.id in idsToDelete) {
-                                previewItem = null
+
+                            // Launch system confirmation dialog for items requiring user consent
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && needsPermissionUris.isNotEmpty()) {
+                                try {
+                                    val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, needsPermissionUris)
+                                    pendingSystemDeleteIds = needsPermissionIds
+                                    pendingAndroid10Uri = null
+                                    val request = IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+                                    systemDeleteLauncher.launch(request)
+                                } catch (e: Exception) {
+                                    Log.e("ImageGallery", "Failed to launch MediaStore.createDeleteRequest", e)
+                                }
+                            } else if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q && recoverableIntentSender != null) {
+                                pendingSystemDeleteIds = if (recoverablePendingId != null) setOf(recoverablePendingId) else emptySet()
+                                pendingAndroid10Uri = recoverablePendingUri
+                                val request = IntentSenderRequest.Builder(recoverableIntentSender).build()
+                                systemDeleteLauncher.launch(request)
                             }
-                            showDeleteDialog = false
-                            deletePendingIds = emptySet()
                         }
                     }
                 ) {
@@ -1083,12 +1250,18 @@ private fun queryAllMedia(context: Context): List<GalleryItem> {
             MediaStore.Images.Media.DISPLAY_NAME,
             MediaStore.Images.Media.DATE_TAKEN,
             MediaStore.Images.Media.MIME_TYPE,
-            MediaStore.Images.Media.SIZE
+            MediaStore.Images.Media.SIZE,
+            MediaStore.MediaColumns.DATA
         )
+        val imageSelection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            "${MediaStore.Images.Media.SIZE} > 0 AND ${MediaStore.MediaColumns.IS_PENDING} = 0"
+        } else {
+            "${MediaStore.Images.Media.SIZE} > 0"
+        }
         contentResolver.query(
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
             imageProjection,
-            null,
+            imageSelection,
             null,
             "${MediaStore.Images.Media.DATE_TAKEN} DESC"
         )?.use { cursor ->
@@ -1097,6 +1270,7 @@ private fun queryAllMedia(context: Context): List<GalleryItem> {
             val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
             val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.MIME_TYPE)
             val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
+            val dataCol = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idCol)
@@ -1104,7 +1278,23 @@ private fun queryAllMedia(context: Context): List<GalleryItem> {
                 val date = cursor.getLong(dateCol)
                 val mime = cursor.getString(mimeCol) ?: "image/jpeg"
                 val size = cursor.getLong(sizeCol)
+                if (size <= 0) continue
+
+                val path = if (dataCol != -1 && !cursor.isNull(dataCol)) cursor.getString(dataCol) else null
                 val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+
+                // Verify file actually exists if path is accessible; cleanup dangling MediaStore rows if missing
+                if (path != null) {
+                    try {
+                        val file = File(path)
+                        if (!file.exists()) {
+                            try {
+                                contentResolver.delete(uri, null, null)
+                            } catch (_: Exception) {}
+                            continue
+                        }
+                    } catch (_: Exception) {}
+                }
 
                 val isCamera = name.contains("RIZZ", ignoreCase = true) ||
                         name.contains("IMG", ignoreCase = true) ||
@@ -1125,7 +1315,9 @@ private fun queryAllMedia(context: Context): List<GalleryItem> {
                         mediaType = mediaType,
                         mimeType = mime,
                         sizeBytes = size,
-                        isCameraPhoto = isCamera
+                        isCameraPhoto = isCamera,
+                        filePath = path,
+                        mediaStoreId = id
                     )
                 )
             }
@@ -1142,12 +1334,18 @@ private fun queryAllMedia(context: Context): List<GalleryItem> {
             MediaStore.Video.Media.DATE_TAKEN,
             MediaStore.Video.Media.MIME_TYPE,
             MediaStore.Video.Media.DURATION,
-            MediaStore.Video.Media.SIZE
+            MediaStore.Video.Media.SIZE,
+            MediaStore.MediaColumns.DATA
         )
+        val videoSelection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            "${MediaStore.Video.Media.SIZE} > 0 AND ${MediaStore.MediaColumns.IS_PENDING} = 0"
+        } else {
+            "${MediaStore.Video.Media.SIZE} > 0"
+        }
         contentResolver.query(
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
             videoProjection,
-            null,
+            videoSelection,
             null,
             "${MediaStore.Video.Media.DATE_TAKEN} DESC"
         )?.use { cursor ->
@@ -1157,6 +1355,7 @@ private fun queryAllMedia(context: Context): List<GalleryItem> {
             val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.MIME_TYPE)
             val durCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
             val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
+            val dataCol = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idCol)
@@ -1165,7 +1364,22 @@ private fun queryAllMedia(context: Context): List<GalleryItem> {
                 val mime = cursor.getString(mimeCol) ?: "video/mp4"
                 val dur = cursor.getLong(durCol)
                 val size = cursor.getLong(sizeCol)
+                if (size <= 0) continue
+
+                val path = if (dataCol != -1 && !cursor.isNull(dataCol)) cursor.getString(dataCol) else null
                 val uri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
+
+                if (path != null) {
+                    try {
+                        val file = File(path)
+                        if (!file.exists()) {
+                            try {
+                                contentResolver.delete(uri, null, null)
+                            } catch (_: Exception) {}
+                            continue
+                        }
+                    } catch (_: Exception) {}
+                }
 
                 result.add(
                     GalleryItem(
@@ -1177,7 +1391,9 @@ private fun queryAllMedia(context: Context): List<GalleryItem> {
                         mimeType = mime,
                         durationMs = dur,
                         sizeBytes = size,
-                        isCameraPhoto = true
+                        isCameraPhoto = true,
+                        filePath = path,
+                        mediaStoreId = id
                     )
                 )
             }
