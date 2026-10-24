@@ -1,11 +1,13 @@
 package com.vintagecam.feature.viewfinder.gallery
 
+import android.Manifest
 import android.app.Activity
 import android.app.RecoverableSecurityException
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.content.IntentSender
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -82,6 +84,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -101,12 +104,16 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -179,6 +186,36 @@ internal fun findItemKeyAtOffset(gridState: LazyGridState, offset: Offset): Long
         val h = item.size.height.toFloat()
         offset.x in x..(x + w) && offset.y in y..(y + h)
     }?.key as? Long
+}
+
+internal fun checkHasGalleryPermission(context: Context): Boolean {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED
+    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED
+    } else {
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+    }
+}
+
+internal fun getGalleryPermissions(): Array<String> {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        arrayOf(
+            Manifest.permission.READ_MEDIA_IMAGES,
+            Manifest.permission.READ_MEDIA_VIDEO,
+            Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+        )
+    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        arrayOf(
+            Manifest.permission.READ_MEDIA_IMAGES,
+            Manifest.permission.READ_MEDIA_VIDEO
+        )
+    } else {
+        arrayOf(
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        )
+    }
 }
 
 /**
@@ -260,8 +297,42 @@ fun FilmRollGalleryScreen(
     val edgeScrollThreshold = with(density) { 90.dp.toPx() }
     val scrollStep = with(density) { 24.dp.toPx() }
 
+    var hasPermission by remember { mutableStateOf(checkHasGalleryPermission(context)) }
+
+    val galleryPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        hasPermission = checkHasGalleryPermission(context)
+        coroutineScope.launch {
+            val loaded = withContext(Dispatchers.IO) {
+                queryAllMedia(context)
+            }
+            items = loaded
+        }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                hasPermission = checkHasGalleryPermission(context)
+                coroutineScope.launch {
+                    val loaded = withContext(Dispatchers.IO) {
+                        queryAllMedia(context)
+                    }
+                    items = loaded
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     // Query media items on mount
     LaunchedEffect(Unit) {
+        hasPermission = checkHasGalleryPermission(context)
         val loaded = withContext(Dispatchers.IO) {
             queryAllMedia(context)
         }
@@ -484,7 +555,15 @@ fun FilmRollGalleryScreen(
                         }
                 ) {
                     if (filteredItems.isEmpty()) {
-                        GalleryEmptyState(selectedCategory = selectedCategory)
+                        if (!hasPermission) {
+                            GalleryPermissionState(
+                                onRequestPermission = {
+                                    galleryPermissionLauncher.launch(getGalleryPermissions())
+                                }
+                            )
+                        } else {
+                            GalleryEmptyState(selectedCategory = selectedCategory)
+                        }
                     } else {
                         LazyVerticalGrid(
                             state = gridState,
@@ -1245,6 +1324,62 @@ private fun GalleryEmptyState(
 }
 
 /**
+ * Gallery state shown when storage or media permissions are missing.
+ */
+@Composable
+private fun GalleryPermissionState(
+    onRequestPermission: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.PhotoLibrary,
+                contentDescription = null,
+                tint = Color(0xFFFFD54F),
+                modifier = Modifier.size(56.dp)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Gallery Permission Required",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Allow RizzCam access to your photos to view and edit your captured prints.",
+                fontSize = 13.sp,
+                color = Color(0xFF9E9EA4),
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFFFD54F),
+                contentColor = Color.Black,
+                modifier = Modifier.clickable { onRequestPermission() }
+            ) {
+                Text(
+                    text = "Grant Photos Permission",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
  * Launches Android system share sheet for single or multiple media assets.
  */
 private fun shareMediaItems(context: Context, itemsToShare: List<GalleryItem>) {
@@ -1321,14 +1456,15 @@ private fun queryAllMedia(context: Context): List<GalleryItem> {
             MediaStore.Images.Media._ID,
             MediaStore.Images.Media.DISPLAY_NAME,
             MediaStore.Images.Media.DATE_TAKEN,
+            MediaStore.Images.Media.DATE_ADDED,
             MediaStore.Images.Media.MIME_TYPE,
             MediaStore.Images.Media.SIZE,
             MediaStore.MediaColumns.DATA
         )
         val imageSelection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            "${MediaStore.Images.Media.SIZE} > 0 AND ${MediaStore.MediaColumns.IS_PENDING} = 0"
+            "${MediaStore.MediaColumns.IS_PENDING} = 0"
         } else {
-            "${MediaStore.Images.Media.SIZE} > 0"
+            null
         }
         contentResolver.query(
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
@@ -1340,6 +1476,7 @@ private fun queryAllMedia(context: Context): List<GalleryItem> {
             val idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
             val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
             val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
+            val dateAddedCol = cursor.getColumnIndex(MediaStore.Images.Media.DATE_ADDED)
             val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.MIME_TYPE)
             val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
             val dataCol = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
@@ -1347,26 +1484,14 @@ private fun queryAllMedia(context: Context): List<GalleryItem> {
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idCol)
                 val name = cursor.getString(nameCol) ?: "IMAGE_$id.JPG"
-                val date = cursor.getLong(dateCol)
+                val rawDate = cursor.getLong(dateCol)
+                val dateAdded = if (dateAddedCol != -1 && !cursor.isNull(dateAddedCol)) cursor.getLong(dateAddedCol) else 0L
+                val date = if (rawDate > 0) rawDate else (dateAdded * 1000L)
                 val mime = cursor.getString(mimeCol) ?: "image/jpeg"
                 val size = cursor.getLong(sizeCol)
-                if (size <= 0) continue
 
                 val path = if (dataCol != -1 && !cursor.isNull(dataCol)) cursor.getString(dataCol) else null
                 val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
-
-                // Verify file actually exists if path is accessible; cleanup dangling MediaStore rows if missing
-                if (path != null) {
-                    try {
-                        val file = File(path)
-                        if (!file.exists()) {
-                            try {
-                                contentResolver.delete(uri, null, null)
-                            } catch (_: Exception) {}
-                            continue
-                        }
-                    } catch (_: Exception) {}
-                }
 
                 val isCamera = name.contains("RIZZ", ignoreCase = true) ||
                         name.contains("IMG", ignoreCase = true) ||
@@ -1404,15 +1529,16 @@ private fun queryAllMedia(context: Context): List<GalleryItem> {
             MediaStore.Video.Media._ID,
             MediaStore.Video.Media.DISPLAY_NAME,
             MediaStore.Video.Media.DATE_TAKEN,
+            MediaStore.Video.Media.DATE_ADDED,
             MediaStore.Video.Media.MIME_TYPE,
             MediaStore.Video.Media.DURATION,
             MediaStore.Video.Media.SIZE,
             MediaStore.MediaColumns.DATA
         )
         val videoSelection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            "${MediaStore.Video.Media.SIZE} > 0 AND ${MediaStore.MediaColumns.IS_PENDING} = 0"
+            "${MediaStore.MediaColumns.IS_PENDING} = 0"
         } else {
-            "${MediaStore.Video.Media.SIZE} > 0"
+            null
         }
         contentResolver.query(
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
@@ -1424,6 +1550,7 @@ private fun queryAllMedia(context: Context): List<GalleryItem> {
             val idCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
             val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
             val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_TAKEN)
+            val dateAddedCol = cursor.getColumnIndex(MediaStore.Video.Media.DATE_ADDED)
             val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.MIME_TYPE)
             val durCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
             val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
@@ -1432,26 +1559,15 @@ private fun queryAllMedia(context: Context): List<GalleryItem> {
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idCol)
                 val name = cursor.getString(nameCol) ?: "VIDEO_$id.MP4"
-                val date = cursor.getLong(dateCol)
+                val rawDate = cursor.getLong(dateCol)
+                val dateAdded = if (dateAddedCol != -1 && !cursor.isNull(dateAddedCol)) cursor.getLong(dateAddedCol) else 0L
+                val date = if (rawDate > 0) rawDate else (dateAdded * 1000L)
                 val mime = cursor.getString(mimeCol) ?: "video/mp4"
                 val dur = cursor.getLong(durCol)
                 val size = cursor.getLong(sizeCol)
-                if (size <= 0) continue
 
                 val path = if (dataCol != -1 && !cursor.isNull(dataCol)) cursor.getString(dataCol) else null
                 val uri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
-
-                if (path != null) {
-                    try {
-                        val file = File(path)
-                        if (!file.exists()) {
-                            try {
-                                contentResolver.delete(uri, null, null)
-                            } catch (_: Exception) {}
-                            continue
-                        }
-                    } catch (_: Exception) {}
-                }
 
                 result.add(
                     GalleryItem(

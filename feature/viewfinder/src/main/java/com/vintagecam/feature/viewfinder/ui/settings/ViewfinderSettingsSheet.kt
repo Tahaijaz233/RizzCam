@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,7 +53,7 @@ fun ViewfinderSettingsSheet(
     onDateStampToggle: (Boolean) -> Unit,
     dateStampStyle: TimestampStyle = TimestampStyle.AUTO,
     onDateStampStyleSelect: (TimestampStyle) -> Unit = {},
-    dateStampFormat: TimestampFormat = TimestampFormat.YEAR_MONTH_DAY,
+    dateStampFormat: TimestampFormat = TimestampFormat.DAY_MONTH_YEAR,
     onDateStampFormatSelect: (TimestampFormat) -> Unit = {},
     activeAspectRatio: AspectRatioProfile = AspectRatioProfile.RATIO_3_2,
     onAspectRatioSelect: (AspectRatioProfile) -> Unit = {},
@@ -75,11 +77,14 @@ fun ViewfinderSettingsSheet(
         dragHandle = null,
         modifier = modifier
     ) {
+        val scrollState = rememberScrollState()
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(scrollState)
                 .padding(horizontal = 20.dp, vertical = 20.dp)
-                .navigationBarsPadding(),
+                .navigationBarsPadding()
+                .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             // Header
@@ -204,7 +209,7 @@ fun ViewfinderSettingsSheet(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         listOf(
-                            Pair(TimestampFormat.YEAR_MONTH_DAY, "'YY MM DD"),
+                            Pair(TimestampFormat.DAY_MONTH_YEAR, "DD MM 'YY"),
                             Pair(TimestampFormat.MONTH_DAY_YEAR, "MM DD 'YY"),
                             Pair(TimestampFormat.DATE_WITH_TIME, "With Time")
                         ).forEach { (fmt, label) ->
@@ -288,7 +293,7 @@ fun ViewfinderSettingsSheet(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     listOf(
                         Pair(0, "Off"),
@@ -308,14 +313,15 @@ fun ViewfinderSettingsSheet(
                                     haptics.tick()
                                     onSelfTimerChanged(seconds)
                                 }
-                                .padding(vertical = 10.dp),
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = label,
                                 color = if (isSelected) Color.Black else Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                fontSize = 11.5.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                maxLines = 1
                             )
                         }
                     }

@@ -481,7 +481,7 @@ fun PhotoEditorScreen(
                                     format = if (selectedStampStyle == TimestampStyle.CAMCORDER_GREEN) {
                                         TimestampFormat.CAMCORDER_OSD
                                     } else {
-                                        TimestampFormat.YEAR_MONTH_DAY
+                                        TimestampFormat.DAY_MONTH_YEAR
                                     }
                                 )
                             }
@@ -1340,7 +1340,7 @@ private suspend fun processAndSaveEditedPhoto(
             RetroTimestampRenderer.applyTimestamp(
                 sourceBitmap = outputBitmap,
                 style = dateStampStyle,
-                format = TimestampFormat.YEAR_MONTH_DAY,
+                format = TimestampFormat.DAY_MONTH_YEAR,
                 isVideoPreset = false
             )
         }

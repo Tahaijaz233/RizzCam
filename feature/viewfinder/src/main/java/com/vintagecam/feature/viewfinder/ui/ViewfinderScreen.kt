@@ -209,51 +209,6 @@ fun ViewfinderScreen(
                             onFocusTap = { x, y, w, h -> viewModel.onFocusTap(x, y, w, h) },
                             modifier = Modifier.fillMaxSize()
                         )
-
-                        // Live Retro Timestamp HUD in Viewfinder
-                        val isStampActive = state.dateStampEnabled || (state.activePreset?.compositing?.enableDateStamp == true)
-                        if (isStampActive) {
-                            val isVideo = state.captureMode == CaptureMode.VIDEO || state.activePreset?.category == com.vintagecam.domain.presets.model.PresetCategory.RETRO_VIDEO
-                            val resolvedStyle = com.vintagecam.core.camera.timestamp.RetroTimestampRenderer.resolveStyle(state.dateStampStyle, isVideo)
-                            val stampText = remember(state.dateStampFormat, resolvedStyle) {
-                                com.vintagecam.core.camera.timestamp.RetroTimestampRenderer.formatTimestamp(
-                                    date = java.util.Date(),
-                                    format = if (resolvedStyle == com.vintagecam.core.camera.timestamp.TimestampStyle.CAMCORDER_GREEN) {
-                                        com.vintagecam.core.camera.timestamp.TimestampFormat.CAMCORDER_OSD
-                                    } else {
-                                        state.dateStampFormat
-                                    }
-                                )
-                            }
-                            val textColor = if (resolvedStyle == com.vintagecam.core.camera.timestamp.TimestampStyle.CAMCORDER_GREEN) {
-                                Color(0xFF22C55E)
-                            } else {
-                                Color(0xFFFF9500)
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(end = 24.dp, bottom = 48.dp)
-                            ) {
-                                Text(
-                                    text = stampText,
-                                    color = Color.Black,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace,
-                                    letterSpacing = 1.sp,
-                                    modifier = Modifier.offset(x = 1.dp, y = 1.dp)
-                                )
-                                Text(
-                                    text = stampText,
-                                    color = textColor,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace,
-                                    letterSpacing = 1.sp
-                                )
-                            }
-                        }
                     }
 
                     // Shutter curtain transient blackout overlay

@@ -25,9 +25,9 @@ enum class TimestampStyle(val displayName: String) {
  * Common date display formats from classic 90s/2000s quartz date backs and camcorders.
  */
 enum class TimestampFormat(val displayName: String) {
-    YEAR_MONTH_DAY(" 'YY MM DD (Classic Digicam)"),
+    DAY_MONTH_YEAR("DD MM 'YY (Classic Quartz)"),
     MONTH_DAY_YEAR("MM DD 'YY (US Format)"),
-    DATE_WITH_TIME(" 'YY MM DD  HH:mm (With Time)"),
+    DATE_WITH_TIME("DD MM 'YY  HH:mm (With Time)"),
     CAMCORDER_OSD("MMM. DD YYYY  HH:mm a (Camcorder)")
 }
 
@@ -62,9 +62,9 @@ object RetroTimestampRenderer {
         val minute2Digit = String.format(Locale.US, "%02d", cal.get(Calendar.MINUTE))
 
         return when (format) {
-            TimestampFormat.YEAR_MONTH_DAY -> "'$year2Digit $month2Digit $day2Digit"
+            TimestampFormat.DAY_MONTH_YEAR -> "$day2Digit $month2Digit '$year2Digit"
             TimestampFormat.MONTH_DAY_YEAR -> "$month2Digit $day2Digit '$year2Digit"
-            TimestampFormat.DATE_WITH_TIME -> "'$year2Digit $month2Digit $day2Digit  $hour2Digit:$minute2Digit"
+            TimestampFormat.DATE_WITH_TIME -> "$day2Digit $month2Digit '$year2Digit  $hour2Digit:$minute2Digit"
             TimestampFormat.CAMCORDER_OSD -> {
                 val monthName = SimpleDateFormat("MMM", Locale.US).format(date).uppercase(Locale.US)
                 val timeAmPm = SimpleDateFormat("hh:mm a", Locale.US).format(date).uppercase(Locale.US)
@@ -97,7 +97,7 @@ object RetroTimestampRenderer {
     fun applyTimestamp(
         sourceBitmap: Bitmap,
         style: TimestampStyle = TimestampStyle.AUTO,
-        format: TimestampFormat = TimestampFormat.YEAR_MONTH_DAY,
+        format: TimestampFormat = TimestampFormat.DAY_MONTH_YEAR,
         date: Date = Date(),
         isVideoPreset: Boolean = false
     ): Bitmap {
@@ -114,7 +114,7 @@ object RetroTimestampRenderer {
         val canvas = Canvas(workingBitmap)
         val resolvedStyle = resolveStyle(style, isVideoPreset)
 
-        val resolvedFormat = if (resolvedStyle == TimestampStyle.CAMCORDER_GREEN && format == TimestampFormat.YEAR_MONTH_DAY) {
+        val resolvedFormat = if (resolvedStyle == TimestampStyle.CAMCORDER_GREEN && format == TimestampFormat.DAY_MONTH_YEAR) {
             TimestampFormat.CAMCORDER_OSD
         } else {
             format

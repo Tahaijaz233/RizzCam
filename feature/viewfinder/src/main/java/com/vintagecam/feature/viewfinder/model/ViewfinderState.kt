@@ -59,7 +59,7 @@ data class ViewfinderState(
     val gridEnabled: Boolean = true,
     val dateStampEnabled: Boolean = false,
     val dateStampStyle: com.vintagecam.core.camera.timestamp.TimestampStyle = com.vintagecam.core.camera.timestamp.TimestampStyle.AUTO,
-    val dateStampFormat: com.vintagecam.core.camera.timestamp.TimestampFormat = com.vintagecam.core.camera.timestamp.TimestampFormat.YEAR_MONTH_DAY,
+    val dateStampFormat: com.vintagecam.core.camera.timestamp.TimestampFormat = com.vintagecam.core.camera.timestamp.TimestampFormat.DAY_MONTH_YEAR,
     val soundEnabled: Boolean = true,
     val hapticsEnabled: Boolean = true,
     val saveOriginalEnabled: Boolean = false,

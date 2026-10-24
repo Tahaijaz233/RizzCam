@@ -113,14 +113,14 @@ class ViewfinderViewModel @JvmOverloads constructor(
     init {
         val savedDateStamp = prefs.getBoolean("date_stamp_enabled", false)
         val savedStyleName = prefs.getString("date_stamp_style", TimestampStyle.AUTO.name) ?: TimestampStyle.AUTO.name
-        val savedFormatName = prefs.getString("date_stamp_format", TimestampFormat.YEAR_MONTH_DAY.name) ?: TimestampFormat.YEAR_MONTH_DAY.name
+        val savedFormatName = prefs.getString("date_stamp_format", TimestampFormat.DAY_MONTH_YEAR.name) ?: TimestampFormat.DAY_MONTH_YEAR.name
         val savedGrid = prefs.getBoolean("grid_enabled", true)
         val savedSound = prefs.getBoolean("sound_enabled", true)
         val savedHaptics = prefs.getBoolean("haptics_enabled", true)
         val savedSaveOriginal = prefs.getBoolean("save_original_enabled", false)
 
         val resolvedStyle = try { TimestampStyle.valueOf(savedStyleName) } catch (_: Exception) { TimestampStyle.AUTO }
-        val resolvedFormat = try { TimestampFormat.valueOf(savedFormatName) } catch (_: Exception) { TimestampFormat.YEAR_MONTH_DAY }
+        val resolvedFormat = try { TimestampFormat.valueOf(savedFormatName) } catch (_: Exception) { TimestampFormat.DAY_MONTH_YEAR }
 
         _state.update {
             it.copy(
@@ -748,7 +748,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
                 _state.update { it.copy(diptychStep = DiptychCaptureStep.STITCHING) }
 
                 try {
-                    val shouldStamp = _state.value.dateStampEnabled || activePreset.compositing.enableDateStamp
+                    val shouldStamp = _state.value.dateStampEnabled
                     val finalComposite = if (shouldStamp) {
                         RetroTimestampRenderer.applyTimestamp(
                             sourceBitmap = diptychResult.compositeBitmap,
@@ -808,7 +808,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
             focalLengthMm = focalLengthMm
         )
 
-        val shouldStamp = _state.value.dateStampEnabled || activePreset.compositing.enableDateStamp
+        val shouldStamp = _state.value.dateStampEnabled
         val finalBitmap = if (shouldStamp) {
             val isVideo = activePreset.category == com.vintagecam.domain.presets.model.PresetCategory.RETRO_VIDEO || _state.value.captureMode == CaptureMode.VIDEO
             RetroTimestampRenderer.applyTimestamp(
@@ -930,7 +930,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
                     focalLengthMm = _state.value.focalLengthMm
                 )
 
-                val shouldStamp = _state.value.dateStampEnabled || activePreset.compositing.enableDateStamp
+                val shouldStamp = _state.value.dateStampEnabled
                 val finalBitmap = if (shouldStamp) {
                     val isVideo = activePreset.category == com.vintagecam.domain.presets.model.PresetCategory.RETRO_VIDEO
                     RetroTimestampRenderer.applyTimestamp(

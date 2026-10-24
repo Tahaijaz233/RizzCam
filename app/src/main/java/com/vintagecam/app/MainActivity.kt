@@ -110,6 +110,9 @@ fun RizzCamApp(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.READ_MEDIA_IMAGES)
             permissions.add(Manifest.permission.READ_MEDIA_VIDEO)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                permissions.add(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
+            }
         } else {
             permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
             if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {

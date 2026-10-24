@@ -15,14 +15,14 @@ import java.util.Date
 class RetroTimestampRendererTest {
 
     @Test
-    fun testFormatTimestampYearMonthDay() {
+    fun testFormatTimestampDayMonthYear() {
         val cal = Calendar.getInstance().apply {
             set(Calendar.YEAR, 2024)
             set(Calendar.MONTH, Calendar.OCTOBER)
             set(Calendar.DAY_OF_MONTH, 24)
         }
-        val formatted = RetroTimestampRenderer.formatTimestamp(cal.time, TimestampFormat.YEAR_MONTH_DAY)
-        assertEquals("Should match 'YY MM DD format", "'24 10 24", formatted)
+        val formatted = RetroTimestampRenderer.formatTimestamp(cal.time, TimestampFormat.DAY_MONTH_YEAR)
+        assertEquals("Should match DD MM 'YY format", "24 10 '24", formatted)
     }
 
     @Test
@@ -46,7 +46,7 @@ class RetroTimestampRendererTest {
             set(Calendar.MINUTE, 45)
         }
         val formatted = RetroTimestampRenderer.formatTimestamp(cal.time, TimestampFormat.DATE_WITH_TIME)
-        assertEquals("Should match 'YY MM DD  HH:mm format", "'24 10 24  21:45", formatted)
+        assertEquals("Should match DD MM 'YY  HH:mm format", "24 10 '24  21:45", formatted)
     }
 
     @Test
