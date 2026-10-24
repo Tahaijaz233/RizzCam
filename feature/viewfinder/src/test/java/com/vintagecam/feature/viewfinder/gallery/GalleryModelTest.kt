@@ -23,7 +23,7 @@ class GalleryModelTest {
     ): GalleryItem {
         return GalleryItem(
             id = id,
-            uri = Uri.EMPTY,
+            uri = null,
             displayName = name,
             dateTaken = System.currentTimeMillis() - id * 1000,
             mediaType = mediaType,

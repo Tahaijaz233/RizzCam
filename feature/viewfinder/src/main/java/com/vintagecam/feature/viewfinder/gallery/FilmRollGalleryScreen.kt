@@ -130,7 +130,7 @@ enum class MediaType {
  */
 data class GalleryItem(
     val id: Long,
-    val uri: Uri,
+    val uri: Uri? = null,
     val displayName: String,
     val dateTaken: Long,
     val mediaType: MediaType,
@@ -533,11 +533,11 @@ fun FilmRollGalleryScreen(
                             withContext(Dispatchers.IO) {
                                 for (id in idsToDelete) {
                                     val item = items.find { it.id == id }
-                                    item?.let {
+                                    item?.uri?.let { uri ->
                                         try {
-                                            context.contentResolver.delete(it.uri, null, null)
+                                            context.contentResolver.delete(uri, null, null)
                                         } catch (e: Exception) {
-                                            Log.w("ImageGallery", "Failed to delete item: ${it.uri}", e)
+                                            Log.w("ImageGallery", "Failed to delete item: $uri", e)
                                         }
                                     }
                                 }
@@ -736,7 +736,7 @@ private fun GallerySquareThumbnail(
  */
 @Composable
 private fun MemorySafeThumbnail(
-    uri: Uri,
+    uri: Uri?,
     isVideo: Boolean,
     contentDescription: String,
     modifier: Modifier = Modifier
@@ -745,6 +745,7 @@ private fun MemorySafeThumbnail(
     var bitmap by remember(uri) { mutableStateOf<Bitmap?>(null) }
 
     LaunchedEffect(uri) {
+        if (uri == null) return@LaunchedEffect
         val loaded = withContext(Dispatchers.IO) {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -821,9 +822,10 @@ private fun FullscreenPhotoViewer(
     var fullBitmap by remember(item.uri) { mutableStateOf<Bitmap?>(null) }
 
     LaunchedEffect(item.uri) {
+        val uri = item.uri ?: return@LaunchedEffect
         val loaded = withContext(Dispatchers.IO) {
             try {
-                context.contentResolver.openInputStream(item.uri)?.use { stream ->
+                context.contentResolver.openInputStream(uri)?.use { stream ->
                     val options = BitmapFactory.Options().apply {
                         inSampleSize = 1
                     }
@@ -1016,7 +1018,7 @@ private fun shareMediaItems(context: Context, itemsToShare: List<GalleryItem>) {
             }
             Intent(Intent.ACTION_SEND).apply {
                 type = mime
-                putExtra(Intent.EXTRA_STREAM, item.uri)
+                item.uri?.let { putExtra(Intent.EXTRA_STREAM, it) }
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
         } else {
@@ -1027,11 +1029,12 @@ private fun shareMediaItems(context: Context, itemsToShare: List<GalleryItem>) {
                 hasImage && !hasVideo -> "image/*"
                 else -> "*/*"
             }
+            val validUris = ArrayList(itemsToShare.mapNotNull { it.uri })
             Intent(Intent.ACTION_SEND_MULTIPLE).apply {
                 type = mime
                 putParcelableArrayListExtra(
                     Intent.EXTRA_STREAM,
-                    ArrayList(itemsToShare.map { it.uri })
+                    validUris
                 )
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
