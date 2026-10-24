@@ -810,7 +810,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
 
         val shouldStamp = _state.value.dateStampEnabled || activePreset.compositing.enableDateStamp
         val finalBitmap = if (shouldStamp) {
-            val isVideo = activePreset.category == com.vintagecam.domain.presets.model.PresetCategory.VIDEO || _state.value.captureMode == CaptureMode.VIDEO
+            val isVideo = activePreset.category == com.vintagecam.domain.presets.model.PresetCategory.RETRO_VIDEO || _state.value.captureMode == CaptureMode.VIDEO
             RetroTimestampRenderer.applyTimestamp(
                 sourceBitmap = croppedBitmap,
                 style = _state.value.dateStampStyle,
@@ -932,7 +932,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
 
                 val shouldStamp = _state.value.dateStampEnabled || activePreset.compositing.enableDateStamp
                 val finalBitmap = if (shouldStamp) {
-                    val isVideo = activePreset.category == com.vintagecam.domain.presets.model.PresetCategory.VIDEO
+                    val isVideo = activePreset.category == com.vintagecam.domain.presets.model.PresetCategory.RETRO_VIDEO
                     RetroTimestampRenderer.applyTimestamp(
                         sourceBitmap = croppedBitmap,
                         style = _state.value.dateStampStyle,

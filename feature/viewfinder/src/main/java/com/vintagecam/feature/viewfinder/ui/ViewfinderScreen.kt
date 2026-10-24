@@ -213,7 +213,7 @@ fun ViewfinderScreen(
                         // Live Retro Timestamp HUD in Viewfinder
                         val isStampActive = state.dateStampEnabled || (state.activePreset?.compositing?.enableDateStamp == true)
                         if (isStampActive) {
-                            val isVideo = state.captureMode == CaptureMode.VIDEO || state.activePreset?.category == com.vintagecam.domain.presets.model.PresetCategory.VIDEO
+                            val isVideo = state.captureMode == CaptureMode.VIDEO || state.activePreset?.category == com.vintagecam.domain.presets.model.PresetCategory.RETRO_VIDEO
                             val resolvedStyle = com.vintagecam.core.camera.timestamp.RetroTimestampRenderer.resolveStyle(state.dateStampStyle, isVideo)
                             val stampText = remember(state.dateStampFormat, resolvedStyle) {
                                 com.vintagecam.core.camera.timestamp.RetroTimestampRenderer.formatTimestamp(
