@@ -31,6 +31,7 @@ data class ViewfinderState(
     val isSettingsOpen: Boolean = false,
     val isSampleDialogOpen: Boolean = false,
     val isFocalLengthPickerOpen: Boolean = false,
+    val isExposurePickerOpen: Boolean = false,
     val focalLengthMm: Int = 35,
     val selectedLens: LensFocalLength = LensFocalLength.LENS_35MM,
     val activeAccessory: OpticalAccessory = OpticalAccessory.NONE,

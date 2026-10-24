@@ -12,7 +12,7 @@ import org.junit.Test
 class FramingGeometryHelperTest {
 
     @Test
-    fun testEveryMillimeterFrom18To135ProducesStrictlyMonotonicFramingScale() {
+    fun testEveryMillimeterFrom13To135ProducesStrictlyMonotonicFramingScale() {
         val containerW = 1080f
         val containerH = 1440f // 3:4 container
         val aspectRatio = AspectRatioProfile.RATIO_3_2
@@ -20,7 +20,7 @@ class FramingGeometryHelperTest {
         var previousWidth = Float.MAX_VALUE
         var previousHeight = Float.MAX_VALUE
 
-        for (mm in 18..135) {
+        for (mm in 13..135) {
             val (normW, normH) = FramingGeometryHelper.calculateNormalizedFraming(
                 containerWidth = containerW,
                 containerHeight = containerH,
@@ -57,10 +57,12 @@ class FramingGeometryHelperTest {
         val containerH = 1440f
         val aspect = AspectRatioProfile.RATIO_4_3
 
-        val geom18 = FramingGeometryHelper.calculateNormalizedFraming(containerW, containerH, aspect, 18)
-        val geomBelow18 = FramingGeometryHelper.calculateNormalizedFraming(containerW, containerH, aspect, 10)
-        assertEquals(geom18.first, geomBelow18.first, 1e-5f)
-        assertEquals(geom18.second, geomBelow18.second, 1e-5f)
+        val geom13 = FramingGeometryHelper.calculateNormalizedFraming(containerW, containerH, aspect, 13)
+        val geomBelow13 = FramingGeometryHelper.calculateNormalizedFraming(containerW, containerH, aspect, 10)
+        assertEquals("Clamping below 13mm matches 13mm full capture width", geom13.first, geomBelow13.first, 1e-5f)
+        assertEquals("Clamping below 13mm matches 13mm full capture height", geom13.second, geomBelow13.second, 1e-5f)
+        assertEquals("13mm expands to 100% full capture width", 1.0f, geom13.first, 1e-4f)
+        assertEquals("13mm expands to 100% full capture height", 1.0f, geom13.second, 1e-4f)
 
         val geom135 = FramingGeometryHelper.calculateNormalizedFraming(containerW, containerH, aspect, 135)
         val geomAbove135 = FramingGeometryHelper.calculateNormalizedFraming(containerW, containerH, aspect, 200)

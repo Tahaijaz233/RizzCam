@@ -88,7 +88,7 @@ fun ViewfinderFramingOverlay(
             .pointerInput(Unit) {
                 detectTransformGestures { _, _, zoom, _ ->
                     if (zoom != 1f) {
-                        continuousFocalMm = (continuousFocalMm * zoom).coerceIn(18f, 135f)
+                        continuousFocalMm = (continuousFocalMm * zoom).coerceIn(13f, 135f)
                         val newMm = continuousFocalMm.roundToInt()
                         if (newMm != currentFocalMm) {
                             onFocalLengthChanged(newMm)
@@ -115,23 +115,25 @@ fun ViewfinderFramingOverlay(
                 val cornerRadiusPx = 18.dp.toPx()
                 val strokeWidthPx = 1.8.dp.toPx()
 
-                // A. Semi-transparent dark scrim outside the framing rectangle
-                val scrimPath = Path().apply {
-                    fillType = PathFillType.EvenOdd
-                    // Full container rect
-                    addRect(Rect(0f, 0f, size.width, size.height))
-                    // Cut out inner rounded framing box
-                    addRoundRect(
-                        RoundRect(
-                            left = geometry.left,
-                            top = geometry.top,
-                            right = geometry.right,
-                            bottom = geometry.bottom,
-                            cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx)
+                // A. Semi-transparent dark scrim outside the framing rectangle (only when not in full capture zone)
+                if (geometry.normalizedWidth < 0.995f || geometry.normalizedHeight < 0.995f) {
+                    val scrimPath = Path().apply {
+                        fillType = PathFillType.EvenOdd
+                        // Full container rect
+                        addRect(Rect(0f, 0f, size.width, size.height))
+                        // Cut out inner rounded framing box
+                        addRoundRect(
+                            RoundRect(
+                                left = geometry.left,
+                                top = geometry.top,
+                                right = geometry.right,
+                                bottom = geometry.bottom,
+                                cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx)
+                            )
                         )
-                    )
+                    }
+                    drawPath(path = scrimPath, color = Color.Black.copy(alpha = 0.62f))
                 }
-                drawPath(path = scrimPath, color = Color.Black.copy(alpha = 0.62f))
 
                 // B. 3x3 Rule of Thirds Grid (inside the framing box)
                 if (gridEnabled) {

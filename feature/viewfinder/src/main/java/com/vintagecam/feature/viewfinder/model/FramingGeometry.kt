@@ -30,9 +30,9 @@ data class FramingRectGeometry(
  * and what is cropped from the full-sensor camera capture.
  */
 object FramingGeometryHelper {
-    const val MIN_FOCAL_MM = 18
+    const val MIN_FOCAL_MM = 13
     const val MAX_FOCAL_MM = 135
-    const val BASE_FOCAL_MM = 18 // Widest FOV (18mm) occupies maximum framing box area
+    const val BASE_FOCAL_MM = 13 // Widest FOV (13mm / 0.5x) occupies full capture zone without artificial margin
 
     /**
      * Resolves the target aspect ratio (width / height) based on profile and orientation.
@@ -52,7 +52,8 @@ object FramingGeometryHelper {
      * Computes the normalized width and height [0.0..1.0] of the framing box relative to
      * container or bitmap dimensions.
      *
-     * Every millimeter between 18mm and 135mm produces a strictly distinct, continuous framing scale.
+     * Every millimeter between 13mm and 135mm produces a strictly distinct, continuous framing scale.
+     * At 13mm, the framing box expands to the complete full capture zone.
      */
     fun calculateNormalizedFraming(
         containerWidth: Float,
@@ -63,9 +64,9 @@ object FramingGeometryHelper {
         val isPortrait = containerHeight >= containerWidth
         val targetRatio = getTargetRatio(aspectRatio, isPortrait)
 
-        // Base bounding area allowing transparent scrim margin around the widest frame
-        val maxBoxW = containerWidth * 0.92f
-        val maxBoxH = containerHeight * 0.88f
+        // Full capture zone without artificial margin clipping
+        val maxBoxW = containerWidth
+        val maxBoxH = containerHeight
 
         val (fitW, fitH) = if (maxBoxW / maxBoxH > targetRatio) {
             Pair(maxBoxH * targetRatio, maxBoxH)
@@ -74,12 +75,8 @@ object FramingGeometryHelper {
         }
 
         // Proportional optical focal length scaling:
-        // Spreading focal length from 18mm to 135mm continuously scales the framing box down.
-        // At 18mm: scale = 1.0 (widest box, narrow scrim margin).
-        // At 35mm: scale = 18 / 35 = 0.514.
-        // At 50mm: scale = 18 / 50 = 0.360.
-        // At 85mm: scale = 18 / 85 = 0.212.
-        // At 135mm: scale = 18 / 135 = 0.133.
+        // Spreading focal length from 13mm to 135mm continuously scales the framing box down.
+        // At 13mm: scale = 1.0 (Full capture zone, 0 scrim).
         val clampedMm = focalLengthMm.coerceIn(MIN_FOCAL_MM, MAX_FOCAL_MM)
         val focalScale = (BASE_FOCAL_MM.toFloat() / clampedMm.toFloat())
 

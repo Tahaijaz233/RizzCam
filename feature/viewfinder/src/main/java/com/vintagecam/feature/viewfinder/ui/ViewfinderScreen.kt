@@ -77,12 +77,15 @@ import com.vintagecam.feature.viewfinder.instant.InstantPhotoOverlay
 import com.vintagecam.feature.viewfinder.model.CameraModel
 import com.vintagecam.feature.viewfinder.theme.RetroTheme
 import com.vintagecam.feature.viewfinder.ui.components.CameraModelGraphic
+import com.vintagecam.feature.viewfinder.ui.components.ExposurePickerSlider
 import com.vintagecam.feature.viewfinder.ui.components.FocalLengthPickerWheel
 import com.vintagecam.feature.viewfinder.ui.components.ViewfinderFramingOverlay
 import com.vintagecam.feature.viewfinder.ui.dialogs.CameraSampleDialog
 import com.vintagecam.feature.viewfinder.ui.drawer.DazzCameraDrawer
 import com.vintagecam.feature.viewfinder.ui.drawer.FullCameraCatalogSheet
 import com.vintagecam.feature.viewfinder.ui.gl.GlViewfinderSurface
+import java.util.Locale
+import kotlin.math.abs
 import com.vintagecam.feature.viewfinder.ui.settings.ViewfinderSettingsSheet
 import com.vintagecam.feature.viewfinder.viewmodel.ViewfinderViewModel
 import kotlinx.coroutines.delay
@@ -238,13 +241,30 @@ fun ViewfinderScreen(
                         )
                     }
 
+                    // Floating Exposure Compensation Slider (Pop-over)
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = state.isExposurePickerOpen,
+                        enter = fadeIn() + slideInVertically { it / 2 },
+                        exit = fadeOut() + slideOutVertically { it / 2 },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 56.dp, start = 16.dp, end = 16.dp)
+                    ) {
+                        ExposurePickerSlider(
+                            currentEv = state.evCompensation,
+                            onEvChanged = { ev -> viewModel.setEvCompensation(ev) },
+                            onDismiss = { viewModel.closeExposurePicker() },
+                            haptics = viewModel.haptics
+                        )
+                    }
+
                     // Floating Control Pill Group: [ Thermometer | mm | EV ]
                     FloatingControlPillGroup(
                         focalLengthMm = state.focalLengthMm,
                         evCompensation = state.evCompensation,
                         onThermostatClick = { viewModel.haptics.tick() },
                         onFocalLengthClick = { viewModel.toggleFocalLengthPicker() },
-                        onEvClick = { viewModel.cycleEvCompensation() },
+                        onEvClick = { viewModel.toggleExposurePicker() },
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .padding(bottom = 8.dp)
@@ -472,8 +492,14 @@ private fun FloatingControlPillGroup(
                 .background(Color(0x33FFFFFF))
         )
 
-        // EV Pill (e.g. "*A +1", "*A 0", "*A -1")
-        val evSign = if (evCompensation > 0f) "+${evCompensation.toInt()}" else "${evCompensation.toInt()}"
+        // EV Pill (e.g. "✳A +0.7", "✳A 0.0", "✳A -0.3")
+        val evSign = if (evCompensation > 0.04f) {
+            "+${String.format(Locale.US, "%.1f", evCompensation)}"
+        } else if (abs(evCompensation) <= 0.04f) {
+            "0.0"
+        } else {
+            String.format(Locale.US, "%.1f", evCompensation)
+        }
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(16.dp))

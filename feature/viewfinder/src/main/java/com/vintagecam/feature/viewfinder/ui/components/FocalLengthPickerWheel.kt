@@ -49,7 +49,7 @@ fun FocalLengthPickerWheel(
     haptics: RetroHapticsEngine,
     modifier: Modifier = Modifier
 ) {
-    val quickStops = listOf(18, 24, 28, 35, 50, 85, 135)
+    val quickStops = listOf(13, 18, 24, 28, 35, 50, 85, 135)
 
     Box(
         modifier = modifier
@@ -92,7 +92,7 @@ fun FocalLengthPickerWheel(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null
                             ) {
-                                if (currentFocalLengthMm > 18) {
+                                if (currentFocalLengthMm > 13) {
                                     haptics.tick()
                                     onFocalLengthChanged(currentFocalLengthMm - 1)
                                 }
@@ -101,7 +101,7 @@ fun FocalLengthPickerWheel(
                     ) {
                         Text(
                             text = "−",
-                            color = if (currentFocalLengthMm > 18) Color.White else Color(0xFF666666),
+                            color = if (currentFocalLengthMm > 13) Color.White else Color(0xFF666666),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -164,9 +164,9 @@ fun FocalLengthPickerWheel(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Continuous Slider (18 to 135 mm)
+            // Continuous Slider (13 to 135 mm)
             Slider(
-                value = currentFocalLengthMm.toFloat(),
+                value = currentFocalLengthMm.toFloat().coerceIn(13f, 135f),
                 onValueChange = { newValue ->
                     val rounded = newValue.roundToInt()
                     if (rounded != currentFocalLengthMm) {
@@ -174,8 +174,8 @@ fun FocalLengthPickerWheel(
                         onFocalLengthChanged(rounded)
                     }
                 },
-                valueRange = 18f..135f,
-                steps = 135 - 18 - 1, // 1 step per integer millimeter
+                valueRange = 13f..135f,
+                steps = 135 - 13 - 1, // 1 step per integer millimeter
                 colors = SliderDefaults.colors(
                     thumbColor = Color.White,
                     activeTrackColor = Color.White,

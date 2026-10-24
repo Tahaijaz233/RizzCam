@@ -25,7 +25,9 @@ import com.vintagecam.core.camera.export.MediaStoreExporter
 import com.vintagecam.core.camera.model.FlashMode
 import com.vintagecam.core.camera.model.FocusMeteringState
 import com.vintagecam.core.camera.model.LensFacing
+import android.opengl.EGLSurface
 import com.vintagecam.core.gl.VintageGlPipeline
+import com.vintagecam.core.gl.egl.EglCore
 import com.vintagecam.core.gl.egl.GlThreadExecutor
 import com.vintagecam.core.gl.texture.TextureCacheManager
 import com.vintagecam.domain.presets.model.AspectRatioProfile
@@ -35,6 +37,7 @@ import com.vintagecam.domain.presets.repository.PresetRepositoryImpl
 import com.vintagecam.feature.viewfinder.haptics.RetroHapticsEngine
 import com.vintagecam.feature.viewfinder.model.CameraModel
 import com.vintagecam.feature.viewfinder.model.DazzCameraCatalog
+import com.vintagecam.feature.viewfinder.model.DazzCameraPresetCatalog
 import com.vintagecam.feature.viewfinder.model.DiptychCaptureStep
 import com.vintagecam.feature.viewfinder.model.OpticalAccessory
 import com.vintagecam.feature.viewfinder.model.ViewfinderState
@@ -83,6 +86,8 @@ class ViewfinderViewModel @JvmOverloads constructor(
     private val diptychManager = HalfFrameDiptychManager()
 
     private val captureGlExecutor = GlThreadExecutor("CaptureGlThread")
+    private var captureEglCore: EglCore? = null
+    private var capturePbufferSurface: EGLSurface? = null
     private var capturePipeline: VintageGlPipeline? = null
     private val captureTextureCache = TextureCacheManager()
 
@@ -105,6 +110,11 @@ class ViewfinderViewModel @JvmOverloads constructor(
         if (capturePipeline == null) {
             captureGlExecutor.postAndWait {
                 if (capturePipeline == null) {
+                    val eglCore = EglCore(flags = EglCore.FLAG_TRY_GLES3)
+                    val pbuffer = eglCore.createOffscreenSurface(1, 1)
+                    eglCore.makeCurrent(pbuffer)
+                    captureEglCore = eglCore
+                    capturePbufferSurface = pbuffer
                     capturePipeline = VintageGlPipeline.createFromAssets(getApplication<Application>().assets)
                 }
             }
@@ -115,13 +125,13 @@ class ViewfinderViewModel @JvmOverloads constructor(
         viewModelScope.launch {
             try {
                 val presets = presetRepository.getAllPresets()
-                val defaultPreset = presets.firstOrNull { it.id == "portra_400_35mm" }
-                    ?: presets.firstOrNull()
+                val currentCamera = _state.value.activeCameraModel
+                val initialPreset = DazzCameraPresetCatalog.getPresetForCamera(currentCamera, presets)
 
                 _state.update {
                     it.copy(
                         presets = presets,
-                        activePreset = defaultPreset
+                        activePreset = initialPreset
                     )
                 }
             } catch (t: Throwable) {
@@ -167,8 +177,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
      */
     fun selectCameraModel(model: CameraModel) {
         haptics.cameraSwitch()
-        val matchingPreset = _state.value.presets.firstOrNull { it.id == model.underlyingPresetId }
-            ?: _state.value.presets.firstOrNull()
+        val matchingPreset = DazzCameraPresetCatalog.getPresetForCamera(model, _state.value.presets)
 
         if (model.aspectRatio != AspectRatioProfile.HALF_FRAME_DIPTYCH) {
             diptychManager.cancelPendingFrame()
@@ -182,7 +191,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
             }
             current.copy(
                 activeCameraModel = model,
-                activePreset = matchingPreset ?: current.activePreset,
+                activePreset = matchingPreset,
                 focalLengthMm = model.defaultFocalLengthMm,
                 diptychStep = resetDiptych,
                 firstDiptychUri = if (resetDiptych == DiptychCaptureStep.IDLE) null else current.firstDiptychUri,
@@ -217,11 +226,11 @@ class ViewfinderViewModel @JvmOverloads constructor(
     }
 
     /**
-     * Updates optical focal length millimeter (18mm to 135mm).
+     * Updates optical focal length millimeter (13mm to 135mm).
      * In accordance with physical vintage framing mechanics, hardware sensor zoom stays 1.0f.
      */
     fun setFocalLengthMm(mm: Int) {
-        val clamped = mm.coerceIn(18, 135)
+        val clamped = mm.coerceIn(13, 135)
         if (_state.value.focalLengthMm != clamped) {
             haptics.tick()
             _state.update { it.copy(focalLengthMm = clamped) }
@@ -279,11 +288,30 @@ class ViewfinderViewModel @JvmOverloads constructor(
 
     fun toggleFocalLengthPicker() {
         haptics.tick()
-        _state.update { it.copy(isFocalLengthPickerOpen = !it.isFocalLengthPickerOpen) }
+        _state.update {
+            it.copy(
+                isFocalLengthPickerOpen = !it.isFocalLengthPickerOpen,
+                isExposurePickerOpen = false
+            )
+        }
     }
 
     fun closeFocalLengthPicker() {
         _state.update { it.copy(isFocalLengthPickerOpen = false) }
+    }
+
+    fun toggleExposurePicker() {
+        haptics.tick()
+        _state.update {
+            it.copy(
+                isExposurePickerOpen = !it.isExposurePickerOpen,
+                isFocalLengthPickerOpen = false
+            )
+        }
+    }
+
+    fun closeExposurePicker() {
+        _state.update { it.copy(isExposurePickerOpen = false) }
     }
 
     /**
@@ -378,7 +406,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
      */
     fun selectLens(lens: LensFocalLength) {
         val mm = when (lens) {
-            LensFocalLength.FISHEYE -> 18
+            LensFocalLength.FISHEYE -> 13
             LensFocalLength.LENS_28MM -> 28
             LensFocalLength.LENS_35MM -> 35
             LensFocalLength.LENS_50MM -> 50
@@ -387,11 +415,12 @@ class ViewfinderViewModel @JvmOverloads constructor(
     }
 
     /**
-     * Adjusts manual exposure compensation in EV stops.
+     * Adjusts manual exposure compensation in EV stops (-2.0 EV to +2.0 EV in 0.1 EV resolution).
      */
     fun setEvCompensation(ev: Float) {
-        _state.update { it.copy(evCompensation = ev) }
-        cameraController.setExposureEv(ev)
+        val roundedEv = ((ev * 10f).roundToInt() / 10f).coerceIn(-2.0f, 2.0f)
+        _state.update { it.copy(evCompensation = roundedEv) }
+        cameraController.setExposureEv(roundedEv)
     }
 
     /**
@@ -434,11 +463,11 @@ class ViewfinderViewModel @JvmOverloads constructor(
     /**
      * Handles pinch-to-zoom gesture scale delta.
      * In accordance with physical vintage framing mechanics, hardware sensor zoom stays 1.0f.
-     * Zooming dynamically adjusts physical optical framing focal length (18mm to 135mm).
+     * Zooming dynamically adjusts physical optical framing focal length (13mm to 135mm).
      */
     fun onZoomGesture(zoomDelta: Float) {
         val currentMm = _state.value.focalLengthMm
-        val newMm = (currentMm * zoomDelta).roundToInt().coerceIn(18, 135)
+        val newMm = (currentMm * zoomDelta).roundToInt().coerceIn(13, 135)
         if (newMm != currentMm) {
             setFocalLengthMm(newMm)
         }
@@ -811,7 +840,14 @@ class ViewfinderViewModel @JvmOverloads constructor(
         try {
             captureGlExecutor.postAndWait {
                 capturePipeline?.release()
+                capturePipeline = null
                 captureTextureCache.releaseAll()
+                capturePbufferSurface?.let { surface ->
+                    captureEglCore?.releaseSurface(surface)
+                    capturePbufferSurface = null
+                }
+                captureEglCore?.release()
+                captureEglCore = null
             }
             captureGlExecutor.quitSafely()
         } catch (e: Exception) {
