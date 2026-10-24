@@ -129,7 +129,7 @@ object DazzCameraPresetCatalog {
                 id = "v_classic",
                 displayName = "V Classic",
                 subtitle = "Classic Broadcast Video • Warm Tungsten Glow",
-                category = PresetCategory.VIDEO,
+                category = PresetCategory.RETRO_VIDEO,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/cinestill_800t.raw3d",
@@ -147,7 +147,7 @@ object DazzCameraPresetCatalog {
                 id = "original_v",
                 displayName = "Original V",
                 subtitle = "High-Def Mobile Video • Rich Natural Color",
-                category = PresetCategory.VIDEO,
+                category = PresetCategory.RETRO_VIDEO,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/portra_400.raw3d",
@@ -165,7 +165,7 @@ object DazzCameraPresetCatalog {
                 id = "dam",
                 displayName = "DAM",
                 subtitle = "Action Wide Perspective • Punchy Saturation",
-                category = PresetCategory.VIDEO,
+                category = PresetCategory.RETRO_VIDEO,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/ccd_powershot.raw3d",
@@ -183,7 +183,7 @@ object DazzCameraPresetCatalog {
                 id = "16mm",
                 displayName = "16mm",
                 subtitle = "Bolex Motion Picture • 500T Halation & Grain",
-                category = PresetCategory.VIDEO,
+                category = PresetCategory.RETRO_VIDEO,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/cinestill_800t.raw3d",
@@ -201,7 +201,7 @@ object DazzCameraPresetCatalog {
                 id = "8mm",
                 displayName = "8mm",
                 subtitle = "Super 8 Home Movie • Golden Halation",
-                category = PresetCategory.VIDEO,
+                category = PresetCategory.RETRO_VIDEO,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/cinestill_800t.raw3d",
@@ -219,7 +219,7 @@ object DazzCameraPresetCatalog {
                 id = "vhs",
                 displayName = "VHS",
                 subtitle = "Magnetic Tape Scanlines • Color Bleed",
-                category = PresetCategory.VIDEO,
+                category = PresetCategory.RETRO_VIDEO,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/cinestill_800t.raw3d",
@@ -237,7 +237,7 @@ object DazzCameraPresetCatalog {
                 id = "kino",
                 displayName = "Kino",
                 subtitle = "Arthouse Cinema • Moody Delicate Curves",
-                category = PresetCategory.VIDEO,
+                category = PresetCategory.RETRO_VIDEO,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/portra_400.raw3d",
@@ -255,7 +255,7 @@ object DazzCameraPresetCatalog {
                 id = "v_funs",
                 displayName = "V FunS",
                 subtitle = "Playful Toy Video • Saturated Pop",
-                category = PresetCategory.VIDEO,
+                category = PresetCategory.RETRO_VIDEO,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/fuji_superia_400.raw3d",
@@ -273,7 +273,7 @@ object DazzCameraPresetCatalog {
                 id = "dcr",
                 displayName = "DCR",
                 subtitle = "MiniDV Camcorder • Millennium Edge",
-                category = PresetCategory.VIDEO,
+                category = PresetCategory.RETRO_VIDEO,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/ccd_powershot.raw3d",
@@ -291,7 +291,7 @@ object DazzCameraPresetCatalog {
                 id = "glow",
                 displayName = "Glow",
                 subtitle = "Ethereal Dream Bloom • Soft Highlights",
-                category = PresetCategory.VIDEO,
+                category = PresetCategory.RETRO_VIDEO,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/cinestill_800t.raw3d",
@@ -309,7 +309,7 @@ object DazzCameraPresetCatalog {
                 id = "slide_p",
                 displayName = "Slide P",
                 subtitle = "Slide Projector • Velvety Blacks",
-                category = PresetCategory.VIDEO,
+                category = PresetCategory.RETRO_VIDEO,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/portra_400.raw3d",
@@ -666,7 +666,7 @@ object DazzCameraPresetCatalog {
                 id = "inst_c",
                 displayName = "Inst C",
                 subtitle = "Contemporary Instant • White Border",
-                category = PresetCategory.INST_COLLECTION,
+                category = PresetCategory.INSTANT,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/polaroid_sx70.raw3d",
@@ -684,7 +684,7 @@ object DazzCameraPresetCatalog {
                 id = "inst_sq",
                 displayName = "Inst SQ",
                 subtitle = "Square Instant • Sharp Chemistry",
-                category = PresetCategory.INST_COLLECTION,
+                category = PresetCategory.INSTANT,
                 aspectRatio = AspectRatioProfile.RATIO_1_1,
                 lut = LutConfig(
                     assetPath = "presets/luts/polaroid_sx70.raw3d",
@@ -702,7 +702,7 @@ object DazzCameraPresetCatalog {
                 id = "inst_sqc",
                 displayName = "Inst SQC",
                 subtitle = "Amber Gel Filter • Cozy Sunset Mood",
-                category = PresetCategory.INST_COLLECTION,
+                category = PresetCategory.INSTANT,
                 aspectRatio = AspectRatioProfile.RATIO_1_1,
                 lut = LutConfig(
                     assetPath = "presets/luts/polaroid_sx70.raw3d",
@@ -720,7 +720,7 @@ object DazzCameraPresetCatalog {
                 id = "paf_r",
                 displayName = "PAF R",
                 subtitle = "Classic Instant • White Frame",
-                category = PresetCategory.INST_COLLECTION,
+                category = PresetCategory.INSTANT,
                 aspectRatio = AspectRatioProfile.RATIO_1_1,
                 lut = LutConfig("presets/luts/polaroid_sx70.raw3d", defaultIntensity = 1.0f, temperatureShift = -0.04f, tintShift = 0.06f),
                 aberration = AberrationConfig(0.007f, -0.015f, 2.0f),
@@ -736,7 +736,7 @@ object DazzCameraPresetCatalog {
                 id = "d_exp",
                 displayName = "D Exp",
                 subtitle = "Experimental Profile • Moody Teal Grain",
-                category = PresetCategory.LEGACY,
+                category = PresetCategory.VINTAGE_135,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/fuji_superia_400.raw3d",
@@ -754,7 +754,7 @@ object DazzCameraPresetCatalog {
                 id = "nt16",
                 displayName = "NT16",
                 subtitle = "Miniature Spy Camera • Micro Lens Vignette",
-                category = PresetCategory.LEGACY,
+                category = PresetCategory.VINTAGE_135,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/contax_t2.raw3d",
@@ -772,7 +772,7 @@ object DazzCameraPresetCatalog {
                 id = "inst_ss",
                 displayName = "Inst SS",
                 subtitle = "Instant Stop-Motion • Punchy Pop",
-                category = PresetCategory.LEGACY,
+                category = PresetCategory.VINTAGE_135,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/polaroid_sx70.raw3d",
@@ -790,7 +790,7 @@ object DazzCameraPresetCatalog {
                 id = "puli",
                 displayName = "Puli",
                 subtitle = "Retro 4-Strip Photobooth Flash",
-                category = PresetCategory.LEGACY,
+                category = PresetCategory.VINTAGE_135,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/ccd_powershot.raw3d",
@@ -808,7 +808,7 @@ object DazzCameraPresetCatalog {
                 id = "kv88",
                 displayName = "KV88",
                 subtitle = "Vintage Studio Medium Format Curve",
-                category = PresetCategory.LEGACY,
+                category = PresetCategory.VINTAGE_135,
                 aspectRatio = AspectRatioProfile.RATIO_1_1,
                 lut = LutConfig(
                     assetPath = "presets/luts/portra_400.raw3d",
@@ -826,7 +826,7 @@ object DazzCameraPresetCatalog {
                 id = "135_sr",
                 displayName = "135 SR",
                 subtitle = "Weather-Sealed Action • Vivid Primary Color",
-                category = PresetCategory.LEGACY,
+                category = PresetCategory.VINTAGE_135,
                 aspectRatio = camera.aspectRatio,
                 lut = LutConfig(
                     assetPath = "presets/luts/fuji_superia_400.raw3d",
