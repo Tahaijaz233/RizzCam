@@ -63,4 +63,48 @@ class WhiteBalanceStateTest {
         assertTrue(TempTrackStyle.values().contains(spectrum))
         assertTrue(TempTrackStyle.values().contains(physical))
     }
+
+    @Test
+    fun testWbParamsConversion() {
+        // Auto mode -> strength should be 0.0f (shader bypass)
+        val autoState = WhiteBalanceState(offset = 0f, tint = 0f, isAuto = true)
+        val autoParams = autoState.toWbParams()
+        assertEquals(6500f, autoParams.temperature, 1f)
+        assertEquals(0f, autoParams.tint, 0.001f)
+        assertEquals(0f, autoParams.strength, 0.001f)
+
+        // Manual mode (-90 offset -> cool ~9489K, +15 tint) -> strength should be 1.0f
+        val manualState = WhiteBalanceState(offset = -90f, tint = 15f, isAuto = false)
+        val manualParams = manualState.toWbParams()
+        assertTrue(manualParams.temperature > 6500f)
+        assertEquals(15f, manualParams.tint, 0.001f)
+        assertEquals(1.0f, manualParams.strength, 0.001f)
+    }
+
+    @Test
+    fun testSliderDragAndLabelUpdates() {
+        var state = WhiteBalanceState()
+        assertTrue(state.isAuto)
+
+        // Drag knob towards cool (-53 offset -> -5 display, ~7953K)
+        val newOffset = -53f
+        state = state.copy(offset = newOffset, isAuto = false)
+        assertFalse(state.isAuto)
+        assertEquals(-5, state.offsetDisplay)
+        assertEquals("−5", WhiteBalanceMath.formatSigned(state.offsetDisplay))
+        assertTrue(state.kelvinLabel > 6500)
+
+        // Drag knob towards warm (+42 offset -> +4 display, ~4761K)
+        state = state.copy(offset = 42f, isAuto = false)
+        assertEquals(4, state.offsetDisplay)
+        assertEquals("+4", WhiteBalanceMath.formatSigned(state.offsetDisplay))
+        assertTrue(state.kelvinLabel < 6500)
+
+        // Reset action -> returns to 0 neutral daylight with isAuto = true
+        state = WhiteBalanceState(offset = 0f, tint = 0f, isAuto = true)
+        assertTrue(state.isAuto)
+        assertEquals(0, state.offsetDisplay)
+        assertEquals(6500, state.kelvinLabel)
+        assertEquals("0", WhiteBalanceMath.formatSigned(state.offsetDisplay))
+    }
 }

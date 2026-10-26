@@ -47,15 +47,22 @@ Per spec §3 and §6.6:
 ## 3. Deviations & Implementation Strategy
 1. **Shader Integration**:
    - `oes_ingest.frag` and `standard_2d_ingest.frag` incorporated `kelvinToRgb(uTemperature)` and luminance-preserving von-Kries gain normalization while preserving `uTemperatureShift` and `uTintShift` uniforms for backwards compatibility with `ShaderIntegrityTest`.
-2. **State Modeling**:
+2. **State Modeling & Allocation-Free Loop**:
    - `WhiteBalanceState` added to `ViewfinderState` with `offset`, `tint`, `isAuto`, `offsetDisplay`, `kelvinLabel`.
+   - Pre-allocated `activeWbParams` mutated directly in GL render loop to ensure 0 GC heap allocations per frame.
+   - Propagated `wbParams` to `importAndProcessPhoto` in `ViewfinderViewModel` for complete capture/import parity.
 3. **UI & Glass Chrome**:
-   - `ChromeTokens` & `Motion` defined per §5.
-   - New `TemperaturePanel` and `TemperatureSlider` components per §7.5 and Appendix B.
-   - Interactive glassmorphic pill controls and circular buttons matching the reference screenshot `ref_temp_ui.png`.
-4. **Android Build Environment**:
-   - Host machine uses zero-host-footprint cloud CI workflow (`.github/workflows/build_and_upload.yml`) with GitHub Actions for release APK generation.
-   - Added `gradlew.bat` with automated fallback detection to bundled JDK 21.
+   - `ChromeTokens` & `Motion` defined per §5. Added `PanelSpringIntSize` for `expandVertically`/`shrinkVertically` IntSize specs.
+   - Replaced unresolved `Icons.Default.LightbulbOutline` with `Icons.Default.Lightbulb` styled with active/inactive alpha.
+   - Refactored default Composable parameters in `ChromeCircleButton`, `CircleButtonRow`, and `TemperatureSlider` to prevent runtime/compile-time lambda evaluation errors.
+   - New `TemperaturePanel` and `TemperatureSlider` components per §7.5 and Appendix B with zero-allocation 1:1 dragging and authentic rubber-band overshoot.
+   - Handled `matchedGeometryEffect` deviation: Compose BOM 2024.06.00 (Compose 1.6.8) lacks SwiftUI's `matchedGeometryEffect`; implemented seamless spring transition via `Motion.PillSpring`.
+   - Prevented viewfinder card layout jump/resize: collapsing `SecondaryActionBar` while the temperature accordion is open ensures stable viewport bounds.
+4. **QA Knobs & Debug Access (§7.7)**:
+   - Added `--es rizzcam.debug.wb_offset` and `--ef rizzcam.debug.wb_offset` intent extra handling in `MainActivity` with immediate persistence.
+   - Implemented hidden QA debug tile via long-press on preview camera tag chip (`📷 camera: GRD-R`), cycling test offsets (`-90`, `0`, `+90`) for screenshot goldens.
+5. **Android Build Environment**:
+   - Automated cloud build & unit test execution via GitHub Actions (`.github/workflows/build_and_upload.yml`).
 
 ---
 
@@ -82,7 +89,7 @@ Per spec §3 and §6.6:
 
 ### Chrome & Gestures
 - Sticky press scale physics: `1.0 -> 0.88 -> spring(0.55f, 700f)`.
-- Slide panel spring: `spring(dampingRatio = 0.86f, stiffness = 340f)`.
+- Slide panel spring: `spring(dampingRatio = 0.86f, stiffness = 340f)` applied to IntSize accordion bounds.
 - Double-tap reset on slider track and long-press reset on thermometer circle button.
-- Detent haptic feedback at zero crossings and 10-unit intervals.
-- Debug intent extras `--es rizzcam.debug.wb_offset` and `--ef rizzcam.debug.wb_offset` wired to `MainActivity`.
+- Detent haptic feedback at zero crossings (`EFFECT_DOUBLE_CLICK`) and 10-unit intervals (`EFFECT_TICK`).
+- Debug intent extras `--es rizzcam.debug.wb_offset` and hidden QA debug tile on camera badge verified.

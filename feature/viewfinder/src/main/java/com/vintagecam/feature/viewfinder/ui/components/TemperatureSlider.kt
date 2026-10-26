@@ -52,24 +52,29 @@ fun TemperatureSlider(
     onReset: () -> Unit,
     modifier: Modifier = Modifier,
     trackStyle: TempTrackStyle = TempTrackStyle.SPECTRUM,
-    haptics: RetroHapticsEngine = remember { RetroHapticsEngine(LocalContext.current) }
+    haptics: RetroHapticsEngine? = null
 ) {
+    val context = LocalContext.current
+    val effectiveHaptics = haptics ?: remember(context) { RetroHapticsEngine(context) }
     val coroutineScope = rememberCoroutineScope()
     var widthPx by remember { mutableFloatStateOf(1f) }
     val visualAnimatable = remember { Animatable(offset) }
+    var isDragging by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var dragVisualOffset by remember { mutableFloatStateOf(offset) }
     val lastTick = remember { mutableIntStateOf((offset / 10f).roundToInt()) }
     val currentOffset by rememberUpdatedState(offset)
+    val currentOnOffsetChange by rememberUpdatedState(onOffsetChange)
+    val currentOnDragEnd by rememberUpdatedState(onDragEnd)
+    val currentOnReset by rememberUpdatedState(onReset)
 
-    LaunchedEffect(offset) {
-        if (!visualAnimatable.isRunning && (visualAnimatable.value - offset) != 0f) {
+    LaunchedEffect(offset, isDragging) {
+        if (!isDragging && !visualAnimatable.isRunning && visualAnimatable.value != offset) {
             visualAnimatable.snapTo(offset)
         }
     }
 
     val displayVal = (offset / 10f).roundToInt()
-    val sliderDesc = stringResource(
-        R.string.temp_slider_desc
-    )
+    val sliderDesc = stringResource(R.string.temp_slider_desc)
     val a11yText = "Color temperature, ${WhiteBalanceMath.formatSigned(displayVal)}. Double-tap to reset."
 
     Box(
@@ -81,70 +86,75 @@ fun TemperatureSlider(
                 this.progressBarRangeInfo = ProgressBarRangeInfo(offset, -100f..100f)
                 this.setProgress(sliderDesc) { target ->
                     val clamped = target.coerceIn(-100f, 100f)
-                    onOffsetChange(clamped)
-                    onDragEnd()
+                    currentOnOffsetChange(clamped)
+                    currentOnDragEnd()
                     true
                 }
             }
             .pointerInput(Unit) {
                 detectTapGestures(
                     onDoubleTap = {
-                        haptics.heavyClick()
+                        effectiveHaptics.heavyClick()
                         coroutineScope.launch {
                             visualAnimatable.animateTo(0f, Motion.PillSpring)
                         }
-                        onReset()
+                        currentOnReset()
                     }
                 )
             }
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = {
+                        isDragging = true
+                        dragVisualOffset = currentOffset
                         lastTick.intValue = (currentOffset / 10f).roundToInt()
                     },
                     onDragEnd = {
                         coroutineScope.launch {
+                            visualAnimatable.snapTo(dragVisualOffset)
                             visualAnimatable.animateTo(
                                 targetValue = currentOffset.coerceIn(-100f, 100f),
                                 animationSpec = Motion.PillSpring
                             )
+                            isDragging = false
                         }
-                        onDragEnd()
+                        currentOnDragEnd()
                     },
                     onDragCancel = {
                         coroutineScope.launch {
+                            visualAnimatable.snapTo(dragVisualOffset)
                             visualAnimatable.animateTo(
                                 targetValue = currentOffset.coerceIn(-100f, 100f),
                                 animationSpec = Motion.PillSpring
                             )
+                            isDragging = false
                         }
-                        onDragEnd()
+                        currentOnDragEnd()
                     },
                     onDrag = { change, dragAmount ->
                         change.consume()
                         val deltaOffset = (dragAmount.x / (widthPx / 2f)) * 100f
-                        val rawNext = visualAnimatable.value + deltaOffset
+                        val rawNext = dragVisualOffset + deltaOffset
                         val rubberBanded = WhiteBalanceMath.rubberBand(rawNext, -100f, 100f, 0.35f)
-                        
-                        coroutineScope.launch {
-                            visualAnimatable.snapTo(rubberBanded)
-                        }
+                        dragVisualOffset = rubberBanded
 
                         val applied = rubberBanded.coerceIn(-100f, 100f)
                         val detent = (applied / 10f).roundToInt()
                         if (detent != lastTick.intValue) {
                             lastTick.intValue = detent
                             if (detent == 0) {
-                                haptics.doubleClick()
+                                effectiveHaptics.doubleClick()
                             } else {
-                                haptics.tick()
+                                effectiveHaptics.tick()
                             }
                         }
-                        onOffsetChange(applied)
+                        currentOnOffsetChange(applied)
                     }
                 )
             }
     ) {
+        val currentKnobOffset = if (isDragging) dragVisualOffset else visualAnimatable.value
+
         Canvas(modifier = Modifier.matchParentSize()) {
             val trackH = ChromeTokens.TrackH.toPx()
             val trackTop = (size.height - trackH) / 2f
@@ -185,11 +195,11 @@ fun TemperatureSlider(
                 style = Stroke(width = 0.8.dp.toPx())
             )
 
-            // 5. Black dot knob with 1.5 dp white ring stroke (tracks visualOffset 1:1)
+            // 5. Black dot knob with 1.5 dp white ring stroke (tracks visualOffset with rubber-band overshoot)
             val knobRadius = ChromeTokens.KnobD.toPx() / 2f
-            val clampedFraction = ((visualAnimatable.value + 100f) / 200f)
-            val knobX = (knobRadius + clampedFraction * (size.width - 2f * knobRadius))
-                .coerceIn(knobRadius, size.width - knobRadius)
+            val usableTravel = (size.width - 2f * knobRadius).coerceAtLeast(1f)
+            val fraction = (currentKnobOffset + 100f) / 200f
+            val knobX = knobRadius + fraction * usableTravel
 
             drawCircle(
                 color = Color.Black,

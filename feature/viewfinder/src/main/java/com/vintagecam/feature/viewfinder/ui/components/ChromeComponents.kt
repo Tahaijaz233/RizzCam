@@ -23,15 +23,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeviceThermostat
 import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.LightbulbOutline
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,11 +72,15 @@ fun ChromeCircleButton(
     active: Boolean = false,
     badge: String? = null,
     label: String = "",
-    haptics: RetroHapticsEngine = remember { RetroHapticsEngine(LocalContext.current) },
+    haptics: RetroHapticsEngine? = null,
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
+    val effectiveHaptics = haptics ?: remember(context) { RetroHapticsEngine(context) }
     val coroutineScope = rememberCoroutineScope()
     val scale = remember { Animatable(1f) }
+    val currentOnClick by rememberUpdatedState(onClick)
+    val currentOnLongClick by rememberUpdatedState(onLongClick)
 
     Box(
         modifier = modifier
@@ -108,14 +113,15 @@ fun ChromeCircleButton(
                         }
                     },
                     onLongPress = {
-                        if (onLongClick != null) {
-                            haptics.heavyClick()
-                            onLongClick()
+                        val longClick = currentOnLongClick
+                        if (longClick != null) {
+                            effectiveHaptics.heavyClick()
+                            longClick()
                         }
                     },
                     onTap = {
-                        haptics.click()
-                        onClick()
+                        effectiveHaptics.click()
+                        currentOnClick()
                     }
                 )
             },
@@ -127,8 +133,9 @@ fun ChromeCircleButton(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .offset(x = 2.dp, y = (-2).dp)
-                    .background(Color(0xFFE53935), CircleShape)
+                    .offset(x = 3.dp, y = (-3).dp)
+                    .background(ChromeTokens.PillDarkFill, CircleShape)
+                    .border(ChromeTokens.Hairline, ChromeTokens.HairlineTop, CircleShape)
                     .padding(horizontal = 4.dp, vertical = 1.dp)
             ) {
                 Text(
@@ -160,8 +167,11 @@ fun CircleButtonRow(
     onThermometerReset: () -> Unit,
     onFlashToggle: () -> Unit,
     modifier: Modifier = Modifier,
-    haptics: RetroHapticsEngine = remember { RetroHapticsEngine(LocalContext.current) }
+    haptics: RetroHapticsEngine? = null
 ) {
+    val context = LocalContext.current
+    val effectiveHaptics = haptics ?: remember(context) { RetroHapticsEngine(context) }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -174,7 +184,7 @@ fun CircleButtonRow(
             onClick = onAutoWbClick,
             active = isAutoWb,
             label = stringResource(R.string.a11y_auto_wb),
-            haptics = haptics
+            haptics = effectiveHaptics
         ) {
             Text(
                 text = "A",
@@ -199,7 +209,7 @@ fun CircleButtonRow(
             active = isThermostatActive,
             badge = tempBadge,
             label = stringResource(R.string.a11y_temperature),
-            haptics = haptics
+            haptics = effectiveHaptics
         ) {
             Icon(
                 imageVector = Icons.Default.DeviceThermostat,
@@ -217,10 +227,10 @@ fun CircleButtonRow(
             onClick = onFlashToggle,
             active = isFlashActive,
             label = stringResource(R.string.a11y_flash),
-            haptics = haptics
+            haptics = effectiveHaptics
         ) {
             Icon(
-                imageVector = if (isFlashActive) Icons.Default.Lightbulb else Icons.Default.LightbulbOutline,
+                imageVector = Icons.Default.Lightbulb,
                 contentDescription = null,
                 tint = if (isFlashActive) Color(0xFFFACC15) else Color.White.copy(alpha = 0.65f),
                 modifier = Modifier.size(20.dp)

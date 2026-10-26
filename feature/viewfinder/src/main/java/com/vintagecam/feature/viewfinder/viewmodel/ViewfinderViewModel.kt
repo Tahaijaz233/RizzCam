@@ -1043,7 +1043,8 @@ class ViewfinderViewModel @JvmOverloads constructor(
                         lutTextureId = lutId,
                         lightLeakTextureId = leakId,
                         borderMaskTextureId = borderId,
-                        exposureEv = _state.value.evCompensation
+                        exposureEv = _state.value.evCompensation,
+                        wbParams = _state.value.whiteBalance.toWbParams()
                     )
                 }
 

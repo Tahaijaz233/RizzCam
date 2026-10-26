@@ -60,6 +60,7 @@ object ChromeTokens {
 object Motion {
     /** Panel expand/collapse — iOS sheet-ish: slight overshoot, fast settle. */
     val PanelSpring: SpringSpec<Float> = spring(dampingRatio = 0.86f, stiffness = 340f)
+    val PanelSpringIntSize: SpringSpec<androidx.compose.ui.unit.IntSize> = spring(dampingRatio = 0.86f, stiffness = 340f)
 
     /** Pill/badge pop & matched-geometry morph. */
     val PillSpring: SpringSpec<Float> = spring(dampingRatio = 0.72f, stiffness = 520f)

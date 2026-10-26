@@ -226,6 +226,20 @@ fun ViewfinderScreen(
                             modifier = Modifier
                                 .align(Alignment.Center)
                                 .padding(top = 16.dp)
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onLongPress = {
+                                            // Hidden QA debug tile (§7.7): cycle -90, 0, +90 for screenshot goldens
+                                            val nextOffset = when (state.whiteBalance.offsetDisplay) {
+                                                0 -> -90f
+                                                -9 -> 90f
+                                                else -> 0f
+                                            }
+                                            viewModel.setWbOffset(nextOffset)
+                                            viewModel.commitWb()
+                                        }
+                                    )
+                                }
                         ) {
                             Text(
                                 text = "📷 camera: ${state.activeCameraModel.name}",
@@ -310,8 +324,8 @@ fun ViewfinderScreen(
                 // R5: Temperature & Tint Editor Panel (expandable accordion below viewport)
                 androidx.compose.animation.AnimatedVisibility(
                     visible = state.isTempPanelOpen,
-                    enter = expandVertically(Motion.PanelSpring) + fadeIn(),
-                    exit = shrinkVertically(Motion.PanelSpring) + fadeOut()
+                    enter = expandVertically(Motion.PanelSpringIntSize) + fadeIn(),
+                    exit = shrinkVertically(Motion.PanelSpringIntSize) + fadeOut()
                 ) {
                     TemperaturePanel(
                         wb = state.whiteBalance,
@@ -339,18 +353,20 @@ fun ViewfinderScreen(
                 )
 
                 // -------------------------------------------------------------
-                // 3. Secondary Action Bar: 5 Iconic Tools
+                // 3. Secondary Action Bar: 5 Iconic Tools (Docked below circle buttons)
                 // -------------------------------------------------------------
-                SecondaryActionBar(
-                    onImportPhoto = { photoPickerLauncher.launch("image/*") },
-                    isDoubleExposureEnabled = state.isDoubleExposureEnabled,
-                    selfTimerSeconds = state.selfTimerSeconds,
-                    flashMode = state.flashMode,
-                    onDoubleExposureToggle = { viewModel.toggleDoubleExposure() },
-                    onSelfTimerCycle = { viewModel.toggleSelfTimer() },
-                    onFlashToggle = { viewModel.toggleFlashMode() },
-                    onCameraFlip = { viewModel.toggleCameraFacing() }
-                )
+                if (!state.isTempPanelOpen) {
+                    SecondaryActionBar(
+                        onImportPhoto = { photoPickerLauncher.launch("image/*") },
+                        isDoubleExposureEnabled = state.isDoubleExposureEnabled,
+                        selfTimerSeconds = state.selfTimerSeconds,
+                        flashMode = state.flashMode,
+                        onDoubleExposureToggle = { viewModel.toggleDoubleExposure() },
+                        onSelfTimerCycle = { viewModel.toggleSelfTimer() },
+                        onFlashToggle = { viewModel.toggleFlashMode() },
+                        onCameraFlip = { viewModel.toggleCameraFacing() }
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(4.dp))
 

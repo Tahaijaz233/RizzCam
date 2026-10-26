@@ -99,6 +99,7 @@ class MainActivity : ComponentActivity() {
 
         if (offset != null) {
             viewfinderViewModel.setWbOffset(offset)
+            viewfinderViewModel.commitWb()
         }
     }
 
