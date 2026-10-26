@@ -14,11 +14,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import com.vintagecam.feature.viewfinder.theme.ChromeTokens
-import com.vintagecam.feature.viewfinder.theme.Motion
-import com.vintagecam.feature.viewfinder.ui.components.CircleButtonRow
-import com.vintagecam.feature.viewfinder.ui.components.OverlayControlRow
-import com.vintagecam.feature.viewfinder.ui.components.TemperaturePanel
+import com.vintagecam.feature.viewfinder.ui.components.TemperatureEditorRow
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -184,13 +180,12 @@ fun ViewfinderScreen(
                         .fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Unified Viewfinder Optical Viewport (3:4 sensor bounds, R1)
+                    // Unified Viewfinder Optical Viewport (3:4 sensor bounds)
                     Box(
                         modifier = Modifier
-                            .padding(top = 12.dp, start = 12.dp, end = 12.dp)
                             .fillMaxWidth()
                             .aspectRatio(3f / 4f)
-                            .clip(RoundedCornerShape(ChromeTokens.CardRadius)),
+                            .clip(RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         // Live OpenGL ES Surface (Full uncropped sensor stream)
@@ -217,50 +212,6 @@ fun ViewfinderScreen(
                             onFocalLengthChanged = { mm -> viewModel.setFocalLengthMm(mm) },
                             onFocusTap = { x, y, w, h -> viewModel.onFocusTap(x, y, w, h) },
                             modifier = Modifier.fillMaxSize()
-                        )
-
-                        // R3: Camera tag chip centered over preview: [📷 camera: GRD-R]
-                        Surface(
-                            shape = RoundedCornerShape(100.dp),
-                            color = Color.Black.copy(alpha = 0.60f),
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                                .padding(top = 16.dp)
-                                .pointerInput(Unit) {
-                                    detectTapGestures(
-                                        onLongPress = {
-                                            // Hidden QA debug tile (§7.7): cycle -90, 0, +90 for screenshot goldens
-                                            val nextOffset = when (state.whiteBalance.offsetDisplay) {
-                                                0 -> -90f
-                                                -9 -> 90f
-                                                else -> 0f
-                                            }
-                                            viewModel.setWbOffset(nextOffset)
-                                            viewModel.commitWb()
-                                        }
-                                    )
-                                }
-                        ) {
-                            Text(
-                                text = "📷 camera: ${state.activeCameraModel.name}",
-                                color = Color.White,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                            )
-                        }
-
-                        // R4: Overlay control row (bottom of preview): chevron, frame counter, exposure glass pill
-                        OverlayControlRow(
-                            isPanelOpen = state.isTempPanelOpen,
-                            onTogglePanel = { viewModel.toggleTempPanel() },
-                            framesLeft = (state.totalFrames - state.currentFrame + 1).coerceAtLeast(1),
-                            exposureEv = state.evCompensation,
-                            onExposureClick = { viewModel.cycleEvCompensation() },
-                            wbState = state.whiteBalance,
-                            onWbPillClick = { viewModel.toggleTempPanel() },
-                            modifier = Modifier.align(Alignment.BottomCenter)
                         )
                     }
 
@@ -319,54 +270,58 @@ fun ViewfinderScreen(
                         )
                     }
 
+                    // Floating Control Pill Group: [ Thermometer | mm | EV ]
+                    FloatingControlPillGroup(
+                        focalLengthMm = state.focalLengthMm,
+                        evCompensation = state.evCompensation,
+                        isThermostatActive = state.isTempPanelOpen || !state.whiteBalance.isAuto || state.whiteBalance.offsetDisplay != 0,
+                        onThermostatClick = { viewModel.toggleTempPanel() },
+                        onThermostatLongClick = { viewModel.resetWb() },
+                        onFocalLengthClick = { viewModel.toggleFocalLengthPicker() },
+                        onEvClick = { viewModel.toggleExposurePicker() },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 8.dp)
+                    )
                 }
 
-                // R5: Temperature & Tint Editor Panel (expandable accordion below viewport)
+                // Temperature Editor Row (T1-T4, expandable with spring(0.86f, 340f))
                 androidx.compose.animation.AnimatedVisibility(
                     visible = state.isTempPanelOpen,
-                    enter = expandVertically(Motion.PanelSpringIntSize) + fadeIn(),
-                    exit = shrinkVertically(Motion.PanelSpringIntSize) + fadeOut()
+                    enter = expandVertically(spring(dampingRatio = 0.86f, stiffness = 340f)) + fadeIn(),
+                    exit = shrinkVertically(spring(dampingRatio = 0.86f, stiffness = 340f)) + fadeOut()
                 ) {
-                    TemperaturePanel(
+                    TemperatureEditorRow(
                         wb = state.whiteBalance,
                         onOffsetChange = { offset -> viewModel.setWbOffset(offset) },
                         onCommitOffset = { viewModel.commitWb() },
                         onReset = { viewModel.resetWb() },
+                        onAutoToggle = { viewModel.toggleAutoWb() },
+                        onWarmStep = { viewModel.stepWbOffset(10f) },
+                        onWarmRamp = { viewModel.rampWbOffset(1.5f) },
+                        onCoolStep = { viewModel.stepWbOffset(-10f) },
+                        onCoolRamp = { viewModel.rampWbOffset(-1.5f) },
+                        haptics = viewModel.haptics,
                         trackStyle = state.tempTrackStyle,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 2.dp)
+                            .padding(horizontal = 16.dp, vertical = 6.dp)
                     )
                 }
 
-                // R6: Circle Button Row: [ 'A' ]  [ 🌡 ]  [ 💡 ]
-                CircleButtonRow(
-                    isAutoWb = state.whiteBalance.isAuto,
-                    isTempPanelOpen = state.isTempPanelOpen,
-                    wb = state.whiteBalance,
+                // -------------------------------------------------------------
+                // 3. Secondary Action Bar: 5 Iconic Tools
+                // -------------------------------------------------------------
+                SecondaryActionBar(
+                    onImportPhoto = { photoPickerLauncher.launch("image/*") },
+                    isDoubleExposureEnabled = state.isDoubleExposureEnabled,
+                    selfTimerSeconds = state.selfTimerSeconds,
                     flashMode = state.flashMode,
-                    onAutoWbClick = { viewModel.toggleAutoWb() },
-                    onThermometerClick = { viewModel.toggleTempPanel() },
-                    onThermometerReset = { viewModel.resetWb() },
+                    onDoubleExposureToggle = { viewModel.toggleDoubleExposure() },
+                    onSelfTimerCycle = { viewModel.toggleSelfTimer() },
                     onFlashToggle = { viewModel.toggleFlashMode() },
-                    haptics = viewModel.haptics
+                    onCameraFlip = { viewModel.toggleCameraFacing() }
                 )
-
-                // -------------------------------------------------------------
-                // 3. Secondary Action Bar: 5 Iconic Tools (Docked below circle buttons)
-                // -------------------------------------------------------------
-                if (!state.isTempPanelOpen) {
-                    SecondaryActionBar(
-                        onImportPhoto = { photoPickerLauncher.launch("image/*") },
-                        isDoubleExposureEnabled = state.isDoubleExposureEnabled,
-                        selfTimerSeconds = state.selfTimerSeconds,
-                        flashMode = state.flashMode,
-                        onDoubleExposureToggle = { viewModel.toggleDoubleExposure() },
-                        onSelfTimerCycle = { viewModel.toggleSelfTimer() },
-                        onFlashToggle = { viewModel.toggleFlashMode() },
-                        onCameraFlip = { viewModel.toggleCameraFacing() }
-                    )
-                }
 
                 Spacer(modifier = Modifier.height(4.dp))
 
@@ -657,7 +612,9 @@ private fun DazzTopBar(
 private fun FloatingControlPillGroup(
     focalLengthMm: Int,
     evCompensation: Float,
+    isThermostatActive: Boolean = false,
     onThermostatClick: () -> Unit,
+    onThermostatLongClick: () -> Unit = {},
     onFocalLengthClick: () -> Unit,
     onEvClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -674,14 +631,19 @@ private fun FloatingControlPillGroup(
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(16.dp))
-                .clickable { onThermostatClick() }
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onLongPress = { onThermostatLongClick() },
+                        onTap = { onThermostatClick() }
+                    )
+                }
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.DeviceThermostat,
                 contentDescription = "Color Temperature / Tint",
-                tint = Color.White,
+                tint = if (isThermostatActive) Color(0xFFFFD54F) else Color.White,
                 modifier = Modifier.size(18.dp)
             )
         }

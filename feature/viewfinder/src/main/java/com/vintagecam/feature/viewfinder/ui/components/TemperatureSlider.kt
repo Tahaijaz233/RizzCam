@@ -11,6 +11,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -20,7 +21,6 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -42,11 +42,18 @@ import kotlin.math.roundToInt
 
 /**
  * Capsule gradient slider with 1:1 finger tracking, rubber-band resistance,
- * tactile detent haptics, and double-tap reset (Section 7.5 & Appendix B).
+ * tactile detent haptics, and double-tap reset (Section 1 & 3).
+ *
+ * T3: Capsule, 14 dp tall. Gradient = stylized spectrum matching reference:
+ *     [#D643C8, #7A5CFF, #3E8BFF, #2FD4C4, #59E06B, #E8E34A, #FF9A3D] (cool side left).
+ *     Knob: 18 dp black dot with 1.5 dp white ring, 1:1 with finger.
+ *     Center detent: 1 dp white 50% notch.
+ *     When isAuto: track + knob render at 45% alpha.
  */
 @Composable
 fun TemperatureSlider(
     offset: Float,
+    isAuto: Boolean = false,
     onOffsetChange: (Float) -> Unit,
     onDragEnd: () -> Unit,
     onReset: () -> Unit,
@@ -59,7 +66,7 @@ fun TemperatureSlider(
     val coroutineScope = rememberCoroutineScope()
     var widthPx by remember { mutableFloatStateOf(1f) }
     val visualAnimatable = remember { Animatable(offset) }
-    var isDragging by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var isDragging by remember { mutableStateOf(false) }
     var dragVisualOffset by remember { mutableFloatStateOf(offset) }
     val lastTick = remember { mutableIntStateOf((offset / 10f).roundToInt()) }
     val currentOffset by rememberUpdatedState(offset)
@@ -79,7 +86,7 @@ fun TemperatureSlider(
 
     Box(
         modifier = modifier
-            .height(44.dp)
+            .height(36.dp)
             .onSizeChanged { widthPx = it.width.toFloat().coerceAtLeast(1f) }
             .semantics(mergeDescendants = true) {
                 this.contentDescription = a11yText
@@ -141,8 +148,9 @@ fun TemperatureSlider(
                         val applied = rubberBanded.coerceIn(-100f, 100f)
                         val detent = (applied / 10f).roundToInt()
                         if (detent != lastTick.intValue) {
+                            val prev = lastTick.intValue
                             lastTick.intValue = detent
-                            if (detent == 0) {
+                            if ((prev < 0 && detent >= 0) || (prev > 0 && detent <= 0) || detent == 0) {
                                 effectiveHaptics.doubleClick()
                             } else {
                                 effectiveHaptics.tick()
@@ -154,9 +162,10 @@ fun TemperatureSlider(
             }
     ) {
         val currentKnobOffset = if (isDragging) dragVisualOffset else visualAnimatable.value
+        val drawAlpha = if (isAuto) 0.45f else 1.0f
 
         Canvas(modifier = Modifier.matchParentSize()) {
-            val trackH = ChromeTokens.TrackH.toPx()
+            val trackH = ChromeTokens.TrackH.toPx() // 14 dp
             val trackTop = (size.height - trackH) / 2f
             val cornerRadius = CornerRadius(trackH / 2f, trackH / 2f)
 
@@ -165,49 +174,40 @@ fun TemperatureSlider(
                 brush = trackStyle.brush(),
                 topLeft = Offset(0f, trackTop),
                 size = Size(size.width, trackH),
-                cornerRadius = cornerRadius
+                cornerRadius = cornerRadius,
+                alpha = drawAlpha
             )
 
-            // 2. Horizontal dotted crosshair line along the center of the track
-            val dashEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 3.dp.toPx()), 0f)
-            drawLine(
-                color = Color.White.copy(alpha = 0.40f),
-                start = Offset(trackH / 2f, size.height / 2f),
-                end = Offset(size.width - trackH / 2f, size.height / 2f),
-                strokeWidth = 1.dp.toPx(),
-                pathEffect = dashEffect
-            )
-
-            // 3. Center detent hairline marker (at 0 offset)
+            // 2. Center detent notch (1 dp white 50% notch at 0 offset)
             val centerHairlineHeight = trackH - 4.dp.toPx()
             drawRect(
-                color = Color.White.copy(alpha = 0.70f),
+                color = Color.White.copy(alpha = 0.50f * drawAlpha),
                 topLeft = Offset(size.width / 2f - 0.5.dp.toPx(), trackTop + 2.dp.toPx()),
                 size = Size(1.dp.toPx(), centerHairlineHeight)
             )
 
-            // 4. Subtle track border for specular finish
+            // 3. Specular track border
             drawRoundRect(
-                color = Color.White.copy(alpha = 0.20f),
+                color = Color.White.copy(alpha = 0.20f * drawAlpha),
                 topLeft = Offset(0f, trackTop),
                 size = Size(size.width, trackH),
                 cornerRadius = cornerRadius,
                 style = Stroke(width = 0.8.dp.toPx())
             )
 
-            // 5. Black dot knob with 1.5 dp white ring stroke (tracks visualOffset with rubber-band overshoot)
+            // 4. Black dot knob with 1.5 dp white ring stroke (18 dp diameter)
             val knobRadius = ChromeTokens.KnobD.toPx() / 2f
             val usableTravel = (size.width - 2f * knobRadius).coerceAtLeast(1f)
             val fraction = (currentKnobOffset + 100f) / 200f
             val knobX = knobRadius + fraction * usableTravel
 
             drawCircle(
-                color = Color.Black,
+                color = Color.Black.copy(alpha = drawAlpha),
                 radius = knobRadius,
                 center = Offset(knobX, size.height / 2f)
             )
             drawCircle(
-                color = Color.White,
+                color = Color.White.copy(alpha = drawAlpha),
                 radius = knobRadius,
                 center = Offset(knobX, size.height / 2f),
                 style = Stroke(width = 1.5.dp.toPx())

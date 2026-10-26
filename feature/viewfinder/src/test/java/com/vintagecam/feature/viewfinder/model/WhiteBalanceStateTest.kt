@@ -7,15 +7,16 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.roundToInt
 
 class WhiteBalanceStateTest {
 
     @Test
-    fun testDefaultStateIsNeutralAuto() {
+    fun testDefaultStateIsNeutralManual() {
         val defaultState = WhiteBalanceState()
         assertEquals(0f, defaultState.offset, 0.001f)
         assertEquals(0f, defaultState.tint, 0.001f)
-        assertTrue(defaultState.isAuto)
+        assertFalse("Default state per spec is manual (isAuto = false)", defaultState.isAuto)
         assertEquals(0, defaultState.offsetDisplay)
         assertEquals(6500, defaultState.kelvinLabel)
         assertEquals("0", WhiteBalanceMath.formatSigned(defaultState.offsetDisplay))
@@ -83,8 +84,8 @@ class WhiteBalanceStateTest {
 
     @Test
     fun testSliderDragAndLabelUpdates() {
-        var state = WhiteBalanceState()
-        assertTrue(state.isAuto)
+        var state = WhiteBalanceState(offset = 0f, isAuto = false)
+        assertFalse(state.isAuto)
 
         // Drag knob towards cool (-53 offset -> -5 display, ~7953K)
         val newOffset = -53f
@@ -100,11 +101,68 @@ class WhiteBalanceStateTest {
         assertEquals("+4", WhiteBalanceMath.formatSigned(state.offsetDisplay))
         assertTrue(state.kelvinLabel < 6500)
 
-        // Reset action -> returns to 0 neutral daylight with isAuto = true
-        state = WhiteBalanceState(offset = 0f, tint = 0f, isAuto = true)
-        assertTrue(state.isAuto)
+        // Reset action -> returns to 0 neutral daylight with isAuto = false
+        state = state.copy(offset = 0f, tint = 0f, isAuto = false)
+        assertFalse(state.isAuto)
         assertEquals(0, state.offsetDisplay)
         assertEquals(6500, state.kelvinLabel)
         assertEquals("0", WhiteBalanceMath.formatSigned(state.offsetDisplay))
+    }
+
+    @Test
+    fun testAutoTogglePreservesManualOffset() {
+        // Start in manual mode at -40 offset
+        var state = WhiteBalanceState(offset = -40f, isAuto = false)
+        assertEquals(-4, state.offsetDisplay)
+        assertEquals(1.0f, state.toWbParams().strength, 0.001f)
+
+        // Tap 'A' -> enables auto, freezes manual offset, shader bypass (strength = 0)
+        state = state.copy(isAuto = true)
+        assertTrue(state.isAuto)
+        assertEquals(-40f, state.offset, 0.001f)
+        assertEquals(0.0f, state.toWbParams().strength, 0.001f)
+
+        // Tap 'A' again -> disables auto, restores frozen manual offset, shader active (strength = 1)
+        state = state.copy(isAuto = false)
+        assertFalse(state.isAuto)
+        assertEquals(-40f, state.offset, 0.001f)
+        assertEquals(-4, state.offsetDisplay)
+        assertEquals(1.0f, state.toWbParams().strength, 0.001f)
+    }
+
+    @Test
+    fun testSunAndBulbStepAndRampSemantics() {
+        var state = WhiteBalanceState(offset = 0f, isAuto = false)
+
+        // Sun tap: +1 display unit (+10 internal)
+        val sunStep = (state.offset + 10f).coerceIn(-100f, 100f)
+        state = state.copy(offset = sunStep, isAuto = false)
+        assertEquals(10f, state.offset, 0.001f)
+        assertEquals(1, state.offsetDisplay)
+        assertEquals("+1", WhiteBalanceMath.formatSigned(state.offsetDisplay))
+
+        // Sun hold ramp: 5 ticks of +1.5 -> +7.5 internal
+        for (i in 1..5) {
+            val ramp = (state.offset + 1.5f).coerceIn(-100f, 100f)
+            state = state.copy(offset = ramp, isAuto = false)
+        }
+        assertEquals(17.5f, state.offset, 0.001f)
+        assertEquals(2, state.offsetDisplay)
+        assertEquals("+2", WhiteBalanceMath.formatSigned(state.offsetDisplay))
+
+        // Bulb tap: -1 display unit (-10 internal)
+        val bulbStep = (state.offset - 10f).coerceIn(-100f, 100f)
+        state = state.copy(offset = bulbStep, isAuto = false)
+        assertEquals(7.5f, state.offset, 0.001f)
+        assertEquals(1, state.offsetDisplay)
+
+        // Bulb ramp across zero towards cool
+        for (i in 1..15) {
+            val ramp = (state.offset - 1.5f).coerceIn(-100f, 100f)
+            state = state.copy(offset = ramp, isAuto = false)
+        }
+        assertEquals(-15.0f, state.offset, 0.001f)
+        assertEquals(-2, state.offsetDisplay)
+        assertEquals("−2", WhiteBalanceMath.formatSigned(state.offsetDisplay))
     }
 }

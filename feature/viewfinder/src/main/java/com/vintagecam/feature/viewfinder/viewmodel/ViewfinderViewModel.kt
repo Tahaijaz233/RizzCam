@@ -129,7 +129,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
         val activeModelId = _state.value.activeCameraModel.id
         val savedWbOffset = prefs.getFloat("${activeModelId}_wb_offset", 0f)
         val savedWbTint = prefs.getFloat("${activeModelId}_wb_tint", 0f)
-        val savedWbAuto = prefs.getBoolean("${activeModelId}_wb_auto", true)
+        val savedWbAuto = prefs.getBoolean("${activeModelId}_wb_auto", false)
         val initialWb = WhiteBalanceState(offset = savedWbOffset, tint = savedWbTint, isAuto = savedWbAuto)
 
         _state.update {
@@ -252,7 +252,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
 
         val savedWbOffset = prefs.getFloat("${model.id}_wb_offset", 0f)
         val savedWbTint = prefs.getFloat("${model.id}_wb_tint", 0f)
-        val savedWbAuto = prefs.getBoolean("${model.id}_wb_auto", true)
+        val savedWbAuto = prefs.getBoolean("${model.id}_wb_auto", false)
         val loadedWb = WhiteBalanceState(offset = savedWbOffset, tint = savedWbTint, isAuto = savedWbAuto)
 
         _state.update { current ->
@@ -507,20 +507,64 @@ class ViewfinderViewModel @JvmOverloads constructor(
     }
 
     /**
+     * Discrete step for Sun (+10) and Bulb (-10) buttons.
+     * Fires detent haptics when crossing display units, and double-click if crossing 0.
+     */
+    fun stepWbOffset(delta: Float) {
+        val currentWb = _state.value.whiteBalance
+        val prevDisplay = currentWb.offsetDisplay
+        val newOffset = (currentWb.offset + delta).coerceIn(-100f, 100f)
+        val newDisplay = (newOffset / 10f).roundToInt()
+        if (newDisplay != prevDisplay) {
+            if ((prevDisplay < 0 && newDisplay >= 0) || (prevDisplay > 0 && newDisplay <= 0) || newDisplay == 0) {
+                haptics.doubleClick()
+            } else {
+                haptics.tick()
+            }
+        }
+        _state.update { current ->
+            current.copy(
+                whiteBalance = current.whiteBalance.copy(offset = newOffset, isAuto = false)
+            )
+        }
+        commitWb()
+    }
+
+    /**
+     * Continuous ramp for Sun (+1.5/50ms) and Bulb (-1.5/50ms) buttons while held.
+     * Fires detent haptics when crossing display units, and double-click if crossing 0.
+     */
+    fun rampWbOffset(delta: Float) {
+        val currentWb = _state.value.whiteBalance
+        val prevDisplay = currentWb.offsetDisplay
+        val newOffset = (currentWb.offset + delta).coerceIn(-100f, 100f)
+        val newDisplay = (newOffset / 10f).roundToInt()
+        if (newDisplay != prevDisplay) {
+            if ((prevDisplay < 0 && newDisplay >= 0) || (prevDisplay > 0 && newDisplay <= 0) || newDisplay == 0) {
+                haptics.doubleClick()
+            } else {
+                haptics.tick()
+            }
+        }
+        _state.update { current ->
+            current.copy(
+                whiteBalance = current.whiteBalance.copy(offset = newOffset, isAuto = false)
+            )
+        }
+    }
+
+    /**
      * Toggles Automatic White Balance mode.
-     * When re-engaging auto, resets offset and tint to 0 neutral daylight with a tick.
+     * When enabling auto, freezes manual offset (shader bypass).
+     * When disabling auto, restores frozen manual offset.
      */
     fun toggleAutoWb() {
         haptics.tick()
-        val isCurrentlyAuto = _state.value.whiteBalance.isAuto
-        val nextAuto = !isCurrentlyAuto
+        val nextAuto = !_state.value.whiteBalance.isAuto
         _state.update { current ->
-            val updatedWb = if (nextAuto) {
-                current.whiteBalance.copy(isAuto = true, offset = 0f, tint = 0f)
-            } else {
-                current.whiteBalance.copy(isAuto = false)
-            }
-            current.copy(whiteBalance = updatedWb)
+            current.copy(
+                whiteBalance = current.whiteBalance.copy(isAuto = nextAuto)
+            )
         }
         commitWb()
     }
@@ -532,7 +576,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
         haptics.heavyClick()
         _state.update { current ->
             current.copy(
-                whiteBalance = WhiteBalanceState(offset = 0f, tint = 0f, isAuto = true)
+                whiteBalance = current.whiteBalance.copy(offset = 0f, tint = 0f)
             )
         }
         commitWb()

@@ -10,3 +10,6 @@ captures/
 .externalNativeBuild
 .cxx
 build_output/
+*.apk
+RizzCam-*-debug-apk/
+unit-test-results/

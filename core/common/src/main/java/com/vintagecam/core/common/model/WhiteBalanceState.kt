@@ -15,7 +15,7 @@ import kotlin.math.roundToInt
 data class WhiteBalanceState(
     val offset: Float = 0f,
     val tint: Float = 0f,
-    val isAuto: Boolean = true
+    val isAuto: Boolean = false
 ) {
     /**
      * Discrete display offset in range [-10..+10] matching reference badge (e.g. "−9").

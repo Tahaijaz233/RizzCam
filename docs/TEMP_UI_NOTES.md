@@ -51,16 +51,18 @@ Per spec §3 and §6.6:
    - `WhiteBalanceState` added to `ViewfinderState` with `offset`, `tint`, `isAuto`, `offsetDisplay`, `kelvinLabel`.
    - Pre-allocated `activeWbParams` mutated directly in GL render loop to ensure 0 GC heap allocations per frame.
    - Propagated `wbParams` to `importAndProcessPhoto` in `ViewfinderViewModel` for complete capture/import parity.
-3. **UI & Glass Chrome**:
-   - `ChromeTokens` & `Motion` defined per §5. Added `PanelSpringIntSize` for `expandVertically`/`shrinkVertically` IntSize specs.
-   - Replaced unresolved `Icons.Default.LightbulbOutline` with `Icons.Default.Lightbulb` styled with active/inactive alpha.
-   - Refactored default Composable parameters in `ChromeCircleButton`, `CircleButtonRow`, and `TemperatureSlider` to prevent runtime/compile-time lambda evaluation errors.
-   - New `TemperaturePanel` and `TemperatureSlider` components per §7.5 and Appendix B with zero-allocation 1:1 dragging and authentic rubber-band overshoot.
-   - Handled `matchedGeometryEffect` deviation: Compose BOM 2024.06.00 (Compose 1.6.8) lacks SwiftUI's `matchedGeometryEffect`; implemented seamless spring transition via `Motion.PillSpring`.
-   - Prevented viewfinder card layout jump/resize: collapsing `SecondaryActionBar` while the temperature accordion is open ensures stable viewport bounds.
+3. **UI & Authentic Dazz-Cam Layout Restoration**:
+   - Reverted unnecessary viewfinder screen overlays (removed camera tag chip overlay and preview overlay control row).
+   - Restored original `FloatingControlPillGroup` (`[ 🌡 | 35 | ✳A 0.0 ]`) inside optical viewport with tap to toggle temperature editor and long-press to reset offset.
+   - Implemented exact spec layout for temperature editor:
+     `Row { Column(label, track).weight(1f) ; Spacer(14.dp) ; A ; Spacer(10.dp) ; Sun ; Spacer(10.dp) ; Bulb }`
+     placed side-by-side on the SAME row above `SecondaryActionBar`.
+   - Wired 'A' button to toggle auto white balance while freezing manual offset (no value jumping).
+   - Wired Sun button with Sun glyph to warm push (+10 tap, +30/s hold-ramp) and Bulb button with Bulb glyph to cool push (-10 tap, -30/s hold-ramp).
+   - Ensured track + knob render at 45% alpha and label displays "AUTO" during auto mode.
 4. **QA Knobs & Debug Access (§7.7)**:
    - Added `--es rizzcam.debug.wb_offset` and `--ef rizzcam.debug.wb_offset` intent extra handling in `MainActivity` with immediate persistence.
-   - Implemented hidden QA debug tile via long-press on preview camera tag chip (`📷 camera: GRD-R`), cycling test offsets (`-90`, `0`, `+90`) for screenshot goldens.
+   - Long-press on thermometer button in `FloatingControlPillGroup` and double-tap on slider track resets offset to 0.
 5. **Android Build Environment**:
    - Automated cloud build & unit test execution via GitHub Actions (`.github/workflows/build_and_upload.yml`).
 
@@ -92,4 +94,4 @@ Per spec §3 and §6.6:
 - Slide panel spring: `spring(dampingRatio = 0.86f, stiffness = 340f)` applied to IntSize accordion bounds.
 - Double-tap reset on slider track and long-press reset on thermometer circle button.
 - Detent haptic feedback at zero crossings (`EFFECT_DOUBLE_CLICK`) and 10-unit intervals (`EFFECT_TICK`).
-- Debug intent extras `--es rizzcam.debug.wb_offset` and hidden QA debug tile on camera badge verified.
+- Debug intent extras `--es rizzcam.debug.wb_offset` and long-press reset on thermometer pill verified.
