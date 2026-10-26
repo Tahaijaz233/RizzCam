@@ -156,12 +156,12 @@ class WhiteBalanceStateTest {
         assertEquals(7.5f, state.offset, 0.001f)
         assertEquals(1, state.offsetDisplay)
 
-        // Bulb ramp across zero towards cool
-        for (i in 1..15) {
+        // Bulb ramp across zero towards cool: 16 ticks of -1.5 -> -24.0 internal (from 7.5 -> -16.5)
+        for (i in 1..16) {
             val ramp = (state.offset - 1.5f).coerceIn(-100f, 100f)
             state = state.copy(offset = ramp, isAuto = false)
         }
-        assertEquals(-15.0f, state.offset, 0.001f)
+        assertEquals(-16.5f, state.offset, 0.001f)
         assertEquals(-2, state.offsetDisplay)
         assertEquals("−2", WhiteBalanceMath.formatSigned(state.offsetDisplay))
     }
