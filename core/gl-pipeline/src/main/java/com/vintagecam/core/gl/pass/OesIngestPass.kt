@@ -42,7 +42,10 @@ class OesIngestPass(
         texMatrix: FloatArray,
         exposureEv: Float,
         temperatureShift: Float,
-        tintShift: Float
+        tintShift: Float,
+        userTemperature: Float = 6500f,
+        userTint: Float = 0f,
+        userStrength: Float = 0f
     ) {
         val activeProgram = if (isExternalOes) oesProgram else standard2dProgram
         activeProgram.use()
@@ -57,6 +60,9 @@ class OesIngestPass(
         activeProgram.setUniform1f("uExposureEv", exposureEv)
         activeProgram.setUniform1f("uTemperatureShift", temperatureShift)
         activeProgram.setUniform1f("uTintShift", tintShift)
+        activeProgram.setUniform1f("uTemperature", userTemperature)
+        activeProgram.setUniform1f("uTint", userTint)
+        activeProgram.setUniform1f("uStrength", userStrength)
 
         drawFullscreenQuad()
     }

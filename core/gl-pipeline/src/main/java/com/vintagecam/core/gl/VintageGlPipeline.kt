@@ -13,6 +13,7 @@ import com.vintagecam.core.gl.pass.FilmGrainPass
 import com.vintagecam.core.gl.pass.HalationChainPass
 import com.vintagecam.core.gl.pass.Lut3dPass
 import com.vintagecam.core.gl.pass.OesIngestPass
+import com.vintagecam.core.common.model.WbParams
 import com.vintagecam.domain.presets.model.CameraPreset
 
 /**
@@ -87,7 +88,8 @@ class VintageGlPipeline(
         lightLeakOpacity: Float = 0.0f,
         lightLeakTransformX: Float = 0.0f,
         lightLeakTransformY: Float = 0.0f,
-        accessoryConfig: AccessoryConfig = AccessoryConfig()
+        accessoryConfig: AccessoryConfig = AccessoryConfig(),
+        wbParams: WbParams? = null
     ) {
         pool.reset()
 
@@ -101,7 +103,10 @@ class VintageGlPipeline(
             texMatrix = texTransformMatrix,
             exposureEv = exposureEv,
             temperatureShift = preset.lut.temperatureShift,
-            tintShift = preset.lut.tintShift
+            tintShift = preset.lut.tintShift,
+            userTemperature = wbParams?.temperature ?: 6500f,
+            userTint = wbParams?.tint ?: 0f,
+            userStrength = wbParams?.strength ?: 0f
         )
         pool.swap()
 

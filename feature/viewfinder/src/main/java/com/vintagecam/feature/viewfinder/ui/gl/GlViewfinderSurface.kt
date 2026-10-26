@@ -54,6 +54,9 @@ import com.vintagecam.core.gl.VintageGlPipeline
 import com.vintagecam.core.gl.egl.EglCore
 import com.vintagecam.core.gl.egl.GlThreadExecutor
 import com.vintagecam.core.gl.fbo.PingPongFboPool
+import com.vintagecam.core.common.math.WhiteBalanceMath
+import com.vintagecam.core.common.model.WhiteBalanceState
+import com.vintagecam.core.common.model.WbParams
 import com.vintagecam.domain.presets.model.AspectRatioProfile
 import com.vintagecam.domain.presets.model.CameraPreset
 import com.vintagecam.feature.viewfinder.theme.RetroTheme
@@ -74,6 +77,7 @@ import kotlinx.coroutines.launch
 fun GlViewfinderSurface(
     preset: CameraPreset,
     evCompensation: Float,
+    whiteBalance: WhiteBalanceState = WhiteBalanceState(),
     focusState: FocusMeteringState = FocusMeteringState.IDLE,
     focusPoint: PointF? = null,
     onSurfaceProviderReady: (Preview.SurfaceProvider) -> Unit,
@@ -92,9 +96,12 @@ fun GlViewfinderSurface(
     // Dedicated GL rendering engine controller
     val renderer = remember { GlViewfinderRenderer(context) }
 
-    // Keep renderer informed of active preset and exposure EV adjustments
-    LaunchedEffect(preset, evCompensation) {
+    // Keep renderer informed of active preset, exposure EV, and white balance adjustments
+    LaunchedEffect(preset, evCompensation, whiteBalance) {
         renderer.updatePresetAndEv(preset, evCompensation)
+        val temp = WhiteBalanceMath.offsetToKelvin(whiteBalance.offset)
+        val strength = if (whiteBalance.isAuto) 0f else 1f
+        renderer.updateWb(temp, whiteBalance.tint, strength)
     }
 
     DisposableEffect(renderer) {
@@ -172,6 +179,14 @@ private class GlViewfinderRenderer(
 
     init {
         Matrix.setIdentityM(cropMatrix, 0)
+    }
+
+    private val activeWbParams = WbParams()
+
+    fun updateWb(temperature: Float, tint: Float, strength: Float) {
+        activeWbParams.temperature = temperature
+        activeWbParams.tint = tint
+        activeWbParams.strength = strength
     }
 
     fun updatePresetAndEv(preset: CameraPreset, ev: Float) {
@@ -304,7 +319,8 @@ private class GlViewfinderRenderer(
                 timeSeed = timeSeed,
                 viewportWidth = viewWidth,
                 viewportHeight = viewHeight,
-                outputFbo = null
+                outputFbo = null,
+                wbParams = activeWbParams
             )
 
             // Swap buffers to display surface

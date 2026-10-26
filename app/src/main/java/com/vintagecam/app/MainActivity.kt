@@ -78,8 +78,27 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
+        handleDebugIntent(intent)
+
         setContent {
             RizzCamApp(viewModel = viewfinderViewModel)
+        }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent?) {
+        super.onNewIntent(intent)
+        handleDebugIntent(intent)
+    }
+
+    private fun handleDebugIntent(intent: android.content.Intent?) {
+        val extraStr = intent?.getStringExtra("rizzcam.debug.wb_offset")
+        val offset = extraStr?.toFloatOrNull()
+            ?: if (intent?.hasExtra("rizzcam.debug.wb_offset") == true) {
+                intent.getFloatExtra("rizzcam.debug.wb_offset", Float.NaN).takeIf { !it.isNaN() }
+            } else null
+
+        if (offset != null) {
+            viewfinderViewModel.setWbOffset(offset)
         }
     }
 

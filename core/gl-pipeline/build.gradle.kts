@@ -45,6 +45,7 @@ android {
 
 dependencies {
     implementation(project(":domain:presets"))
+    implementation(project(":core:common"))
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.annotation:annotation:1.8.0")

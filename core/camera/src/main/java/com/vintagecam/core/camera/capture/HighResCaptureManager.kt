@@ -12,6 +12,7 @@ import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.core.content.ContextCompat
 import com.vintagecam.core.camera.exif.ExifMetadataWriter
+import com.vintagecam.core.common.model.WbParams
 import com.vintagecam.core.gl.PboPhotoReader
 import com.vintagecam.core.gl.VintageGlPipeline
 import com.vintagecam.core.gl.egl.GlThreadExecutor
@@ -72,7 +73,8 @@ class HighResCaptureManager(
         lightLeakTextureId: Int = 0,
         borderMaskTextureId: Int = 0,
         exposureEv: Float = 0.0f,
-        isFrontCamera: Boolean = false
+        isFrontCamera: Boolean = false,
+        wbParams: WbParams? = null
     ): CapturedPhotoResult = withContext(Dispatchers.Default) {
         Log.i(TAG, "Initiating high-res capture for preset: ${preset.displayName} (front: $isFrontCamera)")
 
@@ -115,7 +117,8 @@ class HighResCaptureManager(
                     lutTextureId = lutTextureId,
                     lightLeakTextureId = lightLeakTextureId,
                     borderMaskTextureId = borderMaskTextureId,
-                    exposureEv = exposureEv
+                    exposureEv = exposureEv,
+                    wbParams = wbParams
                 )
             }
         } catch (e: Exception) {
@@ -197,7 +200,8 @@ class HighResCaptureManager(
         lutTextureId: Int,
         lightLeakTextureId: Int,
         borderMaskTextureId: Int,
-        exposureEv: Float
+        exposureEv: Float,
+        wbParams: WbParams? = null
     ): Bitmap {
         // 1. Clamp dimensions to hardware GL_MAX_TEXTURE_SIZE and low-VRAM ceiling (max 4096)
         val maxTextureSize = IntArray(1)
@@ -253,7 +257,8 @@ class HighResCaptureManager(
                 outputFbo = outputFbo,
                 lightLeakOpacity = if (lightLeakTextureId != 0) 0.85f else 0.0f,
                 lightLeakTransformX = (System.currentTimeMillis() % 100).toFloat() / 100.0f,
-                lightLeakTransformY = (System.currentTimeMillis() % 77).toFloat() / 77.0f
+                lightLeakTransformY = (System.currentTimeMillis() % 77).toFloat() / 77.0f,
+                wbParams = wbParams
             )
 
             // 5. Asynchronous DMA PBO Readback (with fallback to direct glReadPixels)
