@@ -68,7 +68,7 @@ fun TemperatureSlider(
     val visualAnimatable = remember { Animatable(offset) }
     var isDragging by remember { mutableStateOf(false) }
     var dragVisualOffset by remember { mutableFloatStateOf(offset) }
-    val lastTick = remember { mutableIntStateOf((offset / 10f).roundToInt()) }
+    val lastTick = remember { mutableIntStateOf(WhiteBalanceMath.offsetToDisplay(offset)) }
     val currentOffset by rememberUpdatedState(offset)
     val currentOnOffsetChange by rememberUpdatedState(onOffsetChange)
     val currentOnDragEnd by rememberUpdatedState(onDragEnd)
@@ -80,7 +80,7 @@ fun TemperatureSlider(
         }
     }
 
-    val displayVal = (offset / 10f).roundToInt()
+    val displayVal = WhiteBalanceMath.offsetToDisplay(offset)
     val sliderDesc = stringResource(R.string.temp_slider_desc)
     val a11yText = "Color temperature, ${WhiteBalanceMath.formatSigned(displayVal)}. Double-tap to reset."
 
@@ -117,7 +117,7 @@ fun TemperatureSlider(
                     onDragStart = {
                         isDragging = true
                         dragVisualOffset = currentOffset
-                        lastTick.intValue = (currentOffset / 10f).roundToInt()
+                        lastTick.intValue = WhiteBalanceMath.offsetToDisplay(currentOffset)
                         currentOnOffsetChange(currentOffset)
                     },
                     onDragEnd = {
@@ -153,7 +153,7 @@ fun TemperatureSlider(
                         dragVisualOffset = rubberBanded
 
                         val applied = rubberBanded.coerceIn(-100f, 100f)
-                        val detent = (applied / 10f).roundToInt()
+                        val detent = WhiteBalanceMath.offsetToDisplay(applied)
                         if (detent != lastTick.intValue) {
                             val prev = lastTick.intValue
                             lastTick.intValue = detent

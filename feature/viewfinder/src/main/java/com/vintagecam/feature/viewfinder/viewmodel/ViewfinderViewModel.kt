@@ -516,7 +516,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
         val currentWb = _state.value.whiteBalance
         val prevDisplay = currentWb.offsetDisplay
         val newOffset = (currentWb.offset + delta).coerceIn(-100f, 100f)
-        val newDisplay = (newOffset / 10f).roundToInt()
+        val newDisplay = WhiteBalanceMath.offsetToDisplay(newOffset)
         if (newDisplay != prevDisplay) {
             if (prevDisplay == 0 || newDisplay == 0 || (prevDisplay < 0 && newDisplay > 0) || (prevDisplay > 0 && newDisplay < 0)) {
                 haptics.doubleClick()
@@ -540,7 +540,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
         val currentWb = _state.value.whiteBalance
         val prevDisplay = currentWb.offsetDisplay
         val newOffset = (currentWb.offset + delta).coerceIn(-100f, 100f)
-        val newDisplay = (newOffset / 10f).roundToInt()
+        val newDisplay = WhiteBalanceMath.offsetToDisplay(newOffset)
         if (newDisplay != prevDisplay) {
             if (prevDisplay == 0 || newDisplay == 0 || (prevDisplay < 0 && newDisplay > 0) || (prevDisplay > 0 && newDisplay < 0)) {
                 haptics.doubleClick()
@@ -865,12 +865,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
             pipeline = pipeline
         )
 
-        val wbState = _state.value.whiteBalance
-        val wbParams = WbParams(
-            temperature = WhiteBalanceMath.offsetToKelvin(wbState.offset),
-            tint = wbState.tint,
-            strength = if (wbState.isAuto) 0f else 1f
-        )
+        val wbParams = _state.value.whiteBalance.toWbParams()
 
         return captureManager.capturePhoto(
             imageCapture = imageCapture,

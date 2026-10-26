@@ -99,6 +99,21 @@ object WhiteBalanceMath {
     }
 
     /**
+     * Converts an internal offset in [-100..100] to a discrete display offset in [-10..+10].
+     * Uses symmetrical rounding away from zero so negative and positive half-integer boundaries
+     * behave symmetrically (e.g. +5.0 -> +1, -5.0 -> -1; +15.0 -> +2, -15.0 -> -2).
+     */
+    fun offsetToDisplay(offset: Float): Int {
+        val scaled = offset / 10f
+        val rounded = if (scaled >= 0f) {
+            scaled.roundToInt()
+        } else {
+            -(-scaled).roundToInt()
+        }
+        return rounded.coerceIn(-10, 10)
+    }
+
+    /**
      * Formats signed integer offset with proper Unicode minus sign (e.g. "−9", "+3", "0").
      */
     fun formatSigned(value: Int): String = when {

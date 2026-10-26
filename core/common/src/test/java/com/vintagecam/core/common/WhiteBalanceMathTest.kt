@@ -98,4 +98,36 @@ class WhiteBalanceMathTest {
         assertEquals(6500, neutralState.kelvinLabel)
         assertEquals("0", WhiteBalanceMath.formatSigned(neutralState.offsetDisplay))
     }
+
+    @Test
+    fun testOffsetToDisplaySymmetryAndBoundaries() {
+        // Neutral daylight
+        assertEquals(0, WhiteBalanceMath.offsetToDisplay(0f))
+        assertEquals(0, WhiteBalanceMath.offsetToDisplay(4.9f))
+        assertEquals(0, WhiteBalanceMath.offsetToDisplay(-4.9f))
+
+        // First transition unit
+        assertEquals(1, WhiteBalanceMath.offsetToDisplay(5.0f))
+        assertEquals(-1, WhiteBalanceMath.offsetToDisplay(-5.0f))
+
+        // Second transition unit (exact failure case on CI with naive roundToInt)
+        assertEquals(2, WhiteBalanceMath.offsetToDisplay(15.0f))
+        assertEquals(-2, WhiteBalanceMath.offsetToDisplay(-15.0f))
+
+        // Clamping and overshoot
+        assertEquals(10, WhiteBalanceMath.offsetToDisplay(100f))
+        assertEquals(-10, WhiteBalanceMath.offsetToDisplay(-100f))
+        assertEquals(10, WhiteBalanceMath.offsetToDisplay(120f))
+        assertEquals(-10, WhiteBalanceMath.offsetToDisplay(-120f))
+
+        // Full symmetry invariant across all offsets [-100..100] in 0.1 increments
+        for (i in -1000..1000) {
+            val offset = i / 10f
+            assertEquals(
+                "Symmetry broken for offset $offset",
+                WhiteBalanceMath.offsetToDisplay(offset),
+                -WhiteBalanceMath.offsetToDisplay(-offset)
+            )
+        }
+    }
 }

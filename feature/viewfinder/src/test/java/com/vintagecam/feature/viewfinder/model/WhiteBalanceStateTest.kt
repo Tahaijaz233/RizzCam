@@ -156,11 +156,18 @@ class WhiteBalanceStateTest {
         assertEquals(7.5f, state.offset, 0.001f)
         assertEquals(1, state.offsetDisplay)
 
-        // Bulb ramp across zero towards cool: 16 ticks of -1.5 -> -24.0 internal (from 7.5 -> -16.5)
-        for (i in 1..16) {
+        // Bulb ramp across zero towards cool: 15 ticks of -1.5 -> -22.5 internal (from 7.5 -> -15.0)
+        for (i in 1..15) {
             val ramp = (state.offset - 1.5f).coerceIn(-100f, 100f)
             state = state.copy(offset = ramp, isAuto = false)
         }
+        assertEquals(-15.0f, state.offset, 0.001f)
+        assertEquals(-2, state.offsetDisplay)
+        assertEquals("−2", WhiteBalanceMath.formatSigned(state.offsetDisplay))
+
+        // 16th tick: continues ramping into cool range (-16.5)
+        val ramp16 = (state.offset - 1.5f).coerceIn(-100f, 100f)
+        state = state.copy(offset = ramp16, isAuto = false)
         assertEquals(-16.5f, state.offset, 0.001f)
         assertEquals(-2, state.offsetDisplay)
         assertEquals("−2", WhiteBalanceMath.formatSigned(state.offsetDisplay))
@@ -216,5 +223,24 @@ class WhiteBalanceStateTest {
         assertFalse(isZeroCrossing(2, 3))
         assertFalse(isZeroCrossing(-1, -2))
         assertFalse(isZeroCrossing(-2, -3))
+    }
+
+    @Test
+    fun testNegativeHalfIntegerSymmetry() {
+        // Kotlin (-1.5f).roundToInt() gives -1 due to floor(x + 0.5f) rounding towards +inf.
+        // Symmetrical rounding ensures negative and positive half-integers mirror each other.
+        val stateNeg15 = WhiteBalanceState(offset = -15.0f)
+        val statePos15 = WhiteBalanceState(offset = 15.0f)
+        assertEquals(-2, stateNeg15.offsetDisplay)
+        assertEquals(2, statePos15.offsetDisplay)
+        assertEquals("−2", WhiteBalanceMath.formatSigned(stateNeg15.offsetDisplay))
+        assertEquals("+2", WhiteBalanceMath.formatSigned(statePos15.offsetDisplay))
+
+        val stateNeg5 = WhiteBalanceState(offset = -5.0f)
+        val statePos5 = WhiteBalanceState(offset = 5.0f)
+        assertEquals(-1, stateNeg5.offsetDisplay)
+        assertEquals(1, statePos5.offsetDisplay)
+        assertEquals("−1", WhiteBalanceMath.formatSigned(stateNeg5.offsetDisplay))
+        assertEquals("+1", WhiteBalanceMath.formatSigned(statePos5.offsetDisplay))
     }
 }
