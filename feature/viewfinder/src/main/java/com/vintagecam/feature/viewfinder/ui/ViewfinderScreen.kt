@@ -8,10 +8,17 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import com.vintagecam.feature.viewfinder.theme.ChromeTokens
+import com.vintagecam.feature.viewfinder.theme.Motion
+import com.vintagecam.feature.viewfinder.ui.components.CircleButtonRow
+import com.vintagecam.feature.viewfinder.ui.components.OverlayControlRow
+import com.vintagecam.feature.viewfinder.ui.components.TemperaturePanel
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -177,12 +184,13 @@ fun ViewfinderScreen(
                         .fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Unified Viewfinder Optical Viewport (3:4 sensor bounds)
+                    // Unified Viewfinder Optical Viewport (3:4 sensor bounds, R1)
                     Box(
                         modifier = Modifier
+                            .padding(top = 12.dp, start = 12.dp, end = 12.dp)
                             .fillMaxWidth()
                             .aspectRatio(3f / 4f)
-                            .clip(RoundedCornerShape(12.dp)),
+                            .clip(RoundedCornerShape(ChromeTokens.CardRadius)),
                         contentAlignment = Alignment.Center
                     ) {
                         // Live OpenGL ES Surface (Full uncropped sensor stream)
@@ -190,6 +198,7 @@ fun ViewfinderScreen(
                             GlViewfinderSurface(
                                 preset = preset,
                                 evCompensation = state.evCompensation,
+                                whiteBalance = state.whiteBalance,
                                 showInternalOverlays = false,
                                 onSurfaceProviderReady = { provider ->
                                     viewModel.bindCamera(lifecycleOwner, provider)
@@ -208,6 +217,36 @@ fun ViewfinderScreen(
                             onFocalLengthChanged = { mm -> viewModel.setFocalLengthMm(mm) },
                             onFocusTap = { x, y, w, h -> viewModel.onFocusTap(x, y, w, h) },
                             modifier = Modifier.fillMaxSize()
+                        )
+
+                        // R3: Camera tag chip centered over preview: [📷 camera: GRD-R]
+                        Surface(
+                            shape = RoundedCornerShape(100.dp),
+                            color = Color.Black.copy(alpha = 0.60f),
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .padding(top = 16.dp)
+                        ) {
+                            Text(
+                                text = "📷 camera: ${state.activeCameraModel.name}",
+                                color = Color.White,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+
+                        // R4: Overlay control row (bottom of preview): chevron, frame counter, exposure glass pill
+                        OverlayControlRow(
+                            isPanelOpen = state.isTempPanelOpen,
+                            onTogglePanel = { viewModel.toggleTempPanel() },
+                            framesLeft = (state.totalFrames - state.currentFrame + 1).coerceAtLeast(1),
+                            exposureEv = state.evCompensation,
+                            onExposureClick = { viewModel.cycleEvCompensation() },
+                            wbState = state.whiteBalance,
+                            onWbPillClick = { viewModel.toggleTempPanel() },
+                            modifier = Modifier.align(Alignment.BottomCenter)
                         )
                     }
 
@@ -266,18 +305,38 @@ fun ViewfinderScreen(
                         )
                     }
 
-                    // Floating Control Pill Group: [ Thermometer | mm | EV ]
-                    FloatingControlPillGroup(
-                        focalLengthMm = state.focalLengthMm,
-                        evCompensation = state.evCompensation,
-                        onThermostatClick = { viewModel.haptics.tick() },
-                        onFocalLengthClick = { viewModel.toggleFocalLengthPicker() },
-                        onEvClick = { viewModel.toggleExposurePicker() },
+                }
+
+                // R5: Temperature & Tint Editor Panel (expandable accordion below viewport)
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = state.isTempPanelOpen,
+                    enter = expandVertically(Motion.PanelSpring) + fadeIn(),
+                    exit = shrinkVertically(Motion.PanelSpring) + fadeOut()
+                ) {
+                    TemperaturePanel(
+                        wb = state.whiteBalance,
+                        onOffsetChange = { offset -> viewModel.setWbOffset(offset) },
+                        onCommitOffset = { viewModel.commitWb() },
+                        onReset = { viewModel.resetWb() },
+                        trackStyle = state.tempTrackStyle,
                         modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 8.dp)
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 2.dp)
                     )
                 }
+
+                // R6: Circle Button Row: [ 'A' ]  [ 🌡 ]  [ 💡 ]
+                CircleButtonRow(
+                    isAutoWb = state.whiteBalance.isAuto,
+                    isTempPanelOpen = state.isTempPanelOpen,
+                    wb = state.whiteBalance,
+                    flashMode = state.flashMode,
+                    onAutoWbClick = { viewModel.toggleAutoWb() },
+                    onThermometerClick = { viewModel.toggleTempPanel() },
+                    onThermometerReset = { viewModel.resetWb() },
+                    onFlashToggle = { viewModel.toggleFlashMode() },
+                    haptics = viewModel.haptics
+                )
 
                 // -------------------------------------------------------------
                 // 3. Secondary Action Bar: 5 Iconic Tools

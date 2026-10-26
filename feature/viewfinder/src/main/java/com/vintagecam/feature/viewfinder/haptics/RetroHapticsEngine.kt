@@ -114,6 +114,56 @@ class RetroHapticsEngine(private val context: Context) {
         }
     }
 
+    /**
+     * Crisp double click triggered when slider crosses 0 (neutral white balance).
+     */
+    fun doubleClick() {
+        vibrateSafely {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_DOUBLE_CLICK))
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val timings = longArrayOf(0, 10, 40, 12)
+                val amplitudes = intArrayOf(0, 120, 0, 180)
+                vibrator?.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(longArrayOf(0, 10, 40, 12), -1)
+            }
+        }
+    }
+
+    /**
+     * Standard iOS click on panel open / close or button actuation.
+     */
+    fun click() {
+        vibrateSafely {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator?.vibrate(VibrationEffect.createOneShot(15L, 160))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(15L)
+            }
+        }
+    }
+
+    /**
+     * Heavy click on long-press reset to 0 neutral white balance.
+     */
+    fun heavyClick() {
+        vibrateSafely {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK))
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator?.vibrate(VibrationEffect.createOneShot(30L, 255))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(30L)
+            }
+        }
+    }
+
     private inline fun vibrateSafely(action: () -> Unit) {
         try {
             if (vibrator?.hasVibrator() == true) {

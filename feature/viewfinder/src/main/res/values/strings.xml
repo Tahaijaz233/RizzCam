@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="a11y_temperature">Color temperature</string>
+    <string name="a11y_exposure">Exposure compensation</string>
+    <string name="a11y_shutter">Shutter release</string>
+    <string name="a11y_flash">Flash mode</string>
+    <string name="a11y_auto_wb">Auto white balance</string>
+    <string name="a11y_collapse_panel">Collapse temperature adjustments</string>
+    <string name="a11y_flip_camera">Flip camera</string>
+    <string name="a11y_presets">Camera presets</string>
+    <string name="temp_slider_desc">Adjust color temperature. Double-tap to reset.</string>
+    <string name="unicode_minus">−</string>
+    <string name="unicode_plus">+</string>
+</resources>
