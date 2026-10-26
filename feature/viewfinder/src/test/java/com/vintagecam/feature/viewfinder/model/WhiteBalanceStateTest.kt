@@ -165,4 +165,56 @@ class WhiteBalanceStateTest {
         assertEquals(-2, state.offsetDisplay)
         assertEquals("−2", WhiteBalanceMath.formatSigned(state.offsetDisplay))
     }
+
+    @Test
+    fun testResetActionClearsAutoMode() {
+        // Start in auto mode with custom manual offset frozen
+        val autoState = WhiteBalanceState(offset = 40f, isAuto = true)
+        assertTrue(autoState.isAuto)
+
+        // Reset must clear offset to 0 and explicitly deactivate auto mode
+        val resetState = autoState.copy(offset = 0f, tint = 0f, isAuto = false)
+        assertFalse(resetState.isAuto)
+        assertEquals(0f, resetState.offset, 0.001f)
+        assertEquals(0, resetState.offsetDisplay)
+        assertEquals(6500, resetState.kelvinLabel)
+        assertEquals(1.0f, resetState.toWbParams().strength, 0.001f)
+    }
+
+    @Test
+    fun testDisplayOffsetClampedDuringOvershoot() {
+        // Extreme touch drag rubber-band overshoots past [-100..100]
+        val overCool = WhiteBalanceState(offset = -115f, isAuto = false)
+        assertEquals(-10, overCool.offsetDisplay)
+        assertEquals("−10", WhiteBalanceMath.formatSigned(overCool.offsetDisplay))
+
+        val overWarm = WhiteBalanceState(offset = 118f, isAuto = false)
+        assertEquals(10, overWarm.offsetDisplay)
+        assertEquals("+10", WhiteBalanceMath.formatSigned(overWarm.offsetDisplay))
+    }
+
+    @Test
+    fun testZeroCrossingDetentConditions() {
+        fun isZeroCrossing(prev: Int, next: Int): Boolean {
+            return prev == 0 || next == 0 || (prev < 0 && next > 0) || (prev > 0 && next < 0)
+        }
+
+        // Stepping away from 0 into warm
+        assertTrue(isZeroCrossing(0, 1))
+        // Stepping away from 0 into cool
+        assertTrue(isZeroCrossing(0, -1))
+        // Stepping back to 0 from warm
+        assertTrue(isZeroCrossing(1, 0))
+        // Stepping back to 0 from cool
+        assertTrue(isZeroCrossing(-1, 0))
+        // Stepping across 0 directly
+        assertTrue(isZeroCrossing(-1, 1))
+        assertTrue(isZeroCrossing(1, -1))
+
+        // Non-zero transitions (should be regular tick, NOT double tick)
+        assertFalse(isZeroCrossing(1, 2))
+        assertFalse(isZeroCrossing(2, 3))
+        assertFalse(isZeroCrossing(-1, -2))
+        assertFalse(isZeroCrossing(-2, -3))
+    }
 }

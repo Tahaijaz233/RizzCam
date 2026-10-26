@@ -423,7 +423,8 @@ class ViewfinderViewModel @JvmOverloads constructor(
         _state.update {
             it.copy(
                 isFocalLengthPickerOpen = !it.isFocalLengthPickerOpen,
-                isExposurePickerOpen = false
+                isExposurePickerOpen = false,
+                isTempPanelOpen = false
             )
         }
     }
@@ -437,7 +438,8 @@ class ViewfinderViewModel @JvmOverloads constructor(
         _state.update {
             it.copy(
                 isExposurePickerOpen = !it.isExposurePickerOpen,
-                isFocalLengthPickerOpen = false
+                isFocalLengthPickerOpen = false,
+                isTempPanelOpen = false
             )
         }
     }
@@ -516,7 +518,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
         val newOffset = (currentWb.offset + delta).coerceIn(-100f, 100f)
         val newDisplay = (newOffset / 10f).roundToInt()
         if (newDisplay != prevDisplay) {
-            if ((prevDisplay < 0 && newDisplay >= 0) || (prevDisplay > 0 && newDisplay <= 0) || newDisplay == 0) {
+            if (prevDisplay == 0 || newDisplay == 0 || (prevDisplay < 0 && newDisplay > 0) || (prevDisplay > 0 && newDisplay < 0)) {
                 haptics.doubleClick()
             } else {
                 haptics.tick()
@@ -540,7 +542,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
         val newOffset = (currentWb.offset + delta).coerceIn(-100f, 100f)
         val newDisplay = (newOffset / 10f).roundToInt()
         if (newDisplay != prevDisplay) {
-            if ((prevDisplay < 0 && newDisplay >= 0) || (prevDisplay > 0 && newDisplay <= 0) || newDisplay == 0) {
+            if (prevDisplay == 0 || newDisplay == 0 || (prevDisplay < 0 && newDisplay > 0) || (prevDisplay > 0 && newDisplay < 0)) {
                 haptics.doubleClick()
             } else {
                 haptics.tick()
@@ -576,7 +578,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
         haptics.heavyClick()
         _state.update { current ->
             current.copy(
-                whiteBalance = current.whiteBalance.copy(offset = 0f, tint = 0f)
+                whiteBalance = current.whiteBalance.copy(offset = 0f, tint = 0f, isAuto = false)
             )
         }
         commitWb()

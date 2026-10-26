@@ -20,7 +20,7 @@ data class WhiteBalanceState(
     /**
      * Discrete display offset in range [-10..+10] matching reference badge (e.g. "−9").
      */
-    val offsetDisplay: Int get() = (offset / 10f).roundToInt()
+    val offsetDisplay: Int get() = (offset / 10f).roundToInt().coerceIn(-10, 10)
 
     /**
      * Estimated Kelvin temperature label (e.g. 5103 for "5103K −9").

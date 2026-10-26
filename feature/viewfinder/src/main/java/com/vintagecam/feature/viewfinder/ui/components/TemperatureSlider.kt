@@ -84,6 +84,9 @@ fun TemperatureSlider(
     val sliderDesc = stringResource(R.string.temp_slider_desc)
     val a11yText = "Color temperature, ${WhiteBalanceMath.formatSigned(displayVal)}. Double-tap to reset."
 
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val knobDPx = with(density) { ChromeTokens.KnobD.toPx() }
+
     Box(
         modifier = modifier
             .height(36.dp)
@@ -115,32 +118,36 @@ fun TemperatureSlider(
                         isDragging = true
                         dragVisualOffset = currentOffset
                         lastTick.intValue = (currentOffset / 10f).roundToInt()
+                        currentOnOffsetChange(currentOffset)
                     },
                     onDragEnd = {
+                        val startVisual = dragVisualOffset
+                        isDragging = false
                         coroutineScope.launch {
-                            visualAnimatable.snapTo(dragVisualOffset)
+                            visualAnimatable.snapTo(startVisual)
                             visualAnimatable.animateTo(
                                 targetValue = currentOffset.coerceIn(-100f, 100f),
                                 animationSpec = Motion.PillSpring
                             )
-                            isDragging = false
                         }
                         currentOnDragEnd()
                     },
                     onDragCancel = {
+                        val startVisual = dragVisualOffset
+                        isDragging = false
                         coroutineScope.launch {
-                            visualAnimatable.snapTo(dragVisualOffset)
+                            visualAnimatable.snapTo(startVisual)
                             visualAnimatable.animateTo(
                                 targetValue = currentOffset.coerceIn(-100f, 100f),
                                 animationSpec = Motion.PillSpring
                             )
-                            isDragging = false
                         }
                         currentOnDragEnd()
                     },
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        val deltaOffset = (dragAmount.x / (widthPx / 2f)) * 100f
+                        val usableTravel = (widthPx - knobDPx).coerceAtLeast(1f)
+                        val deltaOffset = (dragAmount.x / usableTravel) * 200f
                         val rawNext = dragVisualOffset + deltaOffset
                         val rubberBanded = WhiteBalanceMath.rubberBand(rawNext, -100f, 100f, 0.35f)
                         dragVisualOffset = rubberBanded
@@ -150,7 +157,7 @@ fun TemperatureSlider(
                         if (detent != lastTick.intValue) {
                             val prev = lastTick.intValue
                             lastTick.intValue = detent
-                            if ((prev < 0 && detent >= 0) || (prev > 0 && detent <= 0) || detent == 0) {
+                            if (prev == 0 || detent == 0 || (prev < 0 && detent > 0) || (prev > 0 && detent < 0)) {
                                 effectiveHaptics.doubleClick()
                             } else {
                                 effectiveHaptics.tick()

@@ -274,7 +274,7 @@ fun ViewfinderScreen(
                     FloatingControlPillGroup(
                         focalLengthMm = state.focalLengthMm,
                         evCompensation = state.evCompensation,
-                        isThermostatActive = state.isTempPanelOpen || !state.whiteBalance.isAuto || state.whiteBalance.offsetDisplay != 0,
+                        isThermostatActive = state.isTempPanelOpen || state.whiteBalance.isAuto || state.whiteBalance.offsetDisplay != 0,
                         onThermostatClick = { viewModel.toggleTempPanel() },
                         onThermostatLongClick = { viewModel.resetWb() },
                         onFocalLengthClick = { viewModel.toggleFocalLengthPicker() },
@@ -619,6 +619,9 @@ private fun FloatingControlPillGroup(
     onEvClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val currentThermostatClick by androidx.compose.runtime.rememberUpdatedState(onThermostatClick)
+    val currentThermostatLongClick by androidx.compose.runtime.rememberUpdatedState(onThermostatLongClick)
+
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(22.dp))
@@ -633,8 +636,8 @@ private fun FloatingControlPillGroup(
                 .clip(RoundedCornerShape(16.dp))
                 .pointerInput(Unit) {
                     detectTapGestures(
-                        onLongPress = { onThermostatLongClick() },
-                        onTap = { onThermostatClick() }
+                        onLongPress = { currentThermostatLongClick() },
+                        onTap = { currentThermostatClick() }
                     )
                 }
                 .padding(horizontal = 10.dp, vertical = 6.dp),
