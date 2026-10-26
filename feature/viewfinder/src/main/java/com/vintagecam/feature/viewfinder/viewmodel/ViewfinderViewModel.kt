@@ -46,6 +46,10 @@ import com.vintagecam.feature.viewfinder.model.CameraModel
 import com.vintagecam.feature.viewfinder.model.DazzCameraCatalog
 import com.vintagecam.feature.viewfinder.model.DazzCameraPresetCatalog
 import com.vintagecam.feature.viewfinder.model.DiptychCaptureStep
+import com.vintagecam.core.common.math.WhiteBalanceMath
+import com.vintagecam.core.common.model.WhiteBalanceState
+import com.vintagecam.core.common.model.WbParams
+import com.vintagecam.feature.viewfinder.ui.components.TempTrackStyle
 import com.vintagecam.feature.viewfinder.model.OpticalAccessory
 import com.vintagecam.feature.viewfinder.model.ViewfinderState
 import com.vintagecam.feature.viewfinder.ui.components.LensFocalLength
@@ -122,6 +126,12 @@ class ViewfinderViewModel @JvmOverloads constructor(
         val resolvedStyle = try { TimestampStyle.valueOf(savedStyleName) } catch (_: Exception) { TimestampStyle.AUTO }
         val resolvedFormat = try { TimestampFormat.valueOf(savedFormatName) } catch (_: Exception) { TimestampFormat.DAY_MONTH_YEAR }
 
+        val activeModelId = _state.value.activeCameraModel.id
+        val savedWbOffset = prefs.getFloat("${activeModelId}_wb_offset", 0f)
+        val savedWbTint = prefs.getFloat("${activeModelId}_wb_tint", 0f)
+        val savedWbAuto = prefs.getBoolean("${activeModelId}_wb_auto", true)
+        val initialWb = WhiteBalanceState(offset = savedWbOffset, tint = savedWbTint, isAuto = savedWbAuto)
+
         _state.update {
             it.copy(
                 dateStampEnabled = savedDateStamp,
@@ -130,7 +140,8 @@ class ViewfinderViewModel @JvmOverloads constructor(
                 gridEnabled = savedGrid,
                 soundEnabled = savedSound,
                 hapticsEnabled = savedHaptics,
-                saveOriginalEnabled = savedSaveOriginal
+                saveOriginalEnabled = savedSaveOriginal,
+                whiteBalance = initialWb
             )
         }
         loadPresets()
@@ -239,6 +250,11 @@ class ViewfinderViewModel @JvmOverloads constructor(
             cameraController.detachVideoCapture()
         }
 
+        val savedWbOffset = prefs.getFloat("${model.id}_wb_offset", 0f)
+        val savedWbTint = prefs.getFloat("${model.id}_wb_tint", 0f)
+        val savedWbAuto = prefs.getBoolean("${model.id}_wb_auto", true)
+        val loadedWb = WhiteBalanceState(offset = savedWbOffset, tint = savedWbTint, isAuto = savedWbAuto)
+
         _state.update { current ->
             val resetDiptych = if (model.aspectRatio != AspectRatioProfile.HALF_FRAME_DIPTYCH) {
                 DiptychCaptureStep.IDLE
@@ -252,6 +268,7 @@ class ViewfinderViewModel @JvmOverloads constructor(
                 focalLengthMm = model.defaultFocalLengthMm,
                 diptychStep = resetDiptych,
                 firstDiptychUri = if (resetDiptych == DiptychCaptureStep.IDLE) null else current.firstDiptychUri,
+                whiteBalance = loadedWb,
                 isPresetDrawerOpen = false,
                 isFullCatalogOpen = false,
                 isSampleDialogOpen = false
@@ -427,6 +444,105 @@ class ViewfinderViewModel @JvmOverloads constructor(
 
     fun closeExposurePicker() {
         _state.update { it.copy(isExposurePickerOpen = false) }
+    }
+
+    /**
+     * Toggles the R5 Temperature/Tint editor panel with iOS-style spring haptic feedback.
+     */
+    fun toggleTempPanel() {
+        haptics.click()
+        _state.update {
+            it.copy(
+                isTempPanelOpen = !it.isTempPanelOpen,
+                isExposurePickerOpen = false,
+                isFocalLengthPickerOpen = false
+            )
+        }
+    }
+
+    /**
+     * Closes the temperature editor panel.
+     */
+    fun closeTempPanel() {
+        _state.update { it.copy(isTempPanelOpen = false) }
+    }
+
+    /**
+     * Adjusts live color temperature offset in range [-100..100].
+     * Negative values produce cooler casts (towards 10000K), positive produce warmer casts (towards 2000K).
+     * Any manual adjustment automatically deactivates auto-WB.
+     */
+    fun setWbOffset(offset: Float) {
+        val clamped = offset.coerceIn(-100f, 100f)
+        _state.update { current ->
+            current.copy(
+                whiteBalance = current.whiteBalance.copy(offset = clamped, isAuto = false)
+            )
+        }
+    }
+
+    /**
+     * Adjusts live tint balance in range [-100..100] (green <-> magenta).
+     */
+    fun setWbTint(tint: Float) {
+        val clamped = tint.coerceIn(-100f, 100f)
+        _state.update { current ->
+            current.copy(
+                whiteBalance = current.whiteBalance.copy(tint = clamped, isAuto = false)
+            )
+        }
+    }
+
+    /**
+     * Persists active white balance parameters for the current camera model into SharedPreferences.
+     */
+    fun commitWb() {
+        val modelId = _state.value.activeCameraModel.id
+        val wb = _state.value.whiteBalance
+        prefs.edit()
+            .putFloat("${modelId}_wb_offset", wb.offset)
+            .putFloat("${modelId}_wb_tint", wb.tint)
+            .putBoolean("${modelId}_wb_auto", wb.isAuto)
+            .apply()
+    }
+
+    /**
+     * Toggles Automatic White Balance mode.
+     * When re-engaging auto, resets offset and tint to 0 neutral daylight with a tick.
+     */
+    fun toggleAutoWb() {
+        haptics.tick()
+        val isCurrentlyAuto = _state.value.whiteBalance.isAuto
+        val nextAuto = !isCurrentlyAuto
+        _state.update { current ->
+            val updatedWb = if (nextAuto) {
+                current.whiteBalance.copy(isAuto = true, offset = 0f, tint = 0f)
+            } else {
+                current.whiteBalance.copy(isAuto = false)
+            }
+            current.copy(whiteBalance = updatedWb)
+        }
+        commitWb()
+    }
+
+    /**
+     * Resets white balance to 0 neutral daylight (6500K) with a heavy haptic click.
+     */
+    fun resetWb() {
+        haptics.heavyClick()
+        _state.update { current ->
+            current.copy(
+                whiteBalance = WhiteBalanceState(offset = 0f, tint = 0f, isAuto = true)
+            )
+        }
+        commitWb()
+    }
+
+    /**
+     * Switches between SPECTRUM and PHYSICAL gradient track rendering styles.
+     */
+    fun setTempTrackStyle(style: TempTrackStyle) {
+        _state.update { it.copy(tempTrackStyle = style) }
     }
 
     /**
@@ -703,6 +819,13 @@ class ViewfinderViewModel @JvmOverloads constructor(
             pipeline = pipeline
         )
 
+        val wbState = _state.value.whiteBalance
+        val wbParams = WbParams(
+            temperature = WhiteBalanceMath.offsetToKelvin(wbState.offset),
+            tint = wbState.tint,
+            strength = if (wbState.isAuto) 0f else 1f
+        )
+
         return captureManager.capturePhoto(
             imageCapture = imageCapture,
             preset = preset,
@@ -710,7 +833,8 @@ class ViewfinderViewModel @JvmOverloads constructor(
             lightLeakTextureId = leakId,
             borderMaskTextureId = borderId,
             exposureEv = ev,
-            isFrontCamera = isFrontCamera
+            isFrontCamera = isFrontCamera,
+            wbParams = wbParams
         )
     }
 
